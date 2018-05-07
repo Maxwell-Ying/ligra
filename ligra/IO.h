@@ -37,6 +37,8 @@
 #include "quickSort.h"
 #include "utils.h"
 #include "graph.h"
+#include "myVector.h"
+#include "delta.h"
 using namespace std;
 
 typedef pair<uintE,uintE> intPair;
@@ -161,6 +163,65 @@ words stringToWords(char *Str, long n) {
 }
 
 template <class vertex>
+delta<vertex> readDeltaFromFile(char* fname) {
+  words W;
+  _seq<char> S = readStringFromFile(fname);
+  W = stringToWords(S.A, S.n);
+
+  if (W.Strings[0] != (string) "AdjacencyGraphDelta") {
+    cout << "bad input file" << endl;
+    abort();
+  }
+
+  int version_start = atoi(W.Strings[1]);
+  int version_end = atoi(W.Strings[2]);
+
+  long len = W.m - 1;
+  long len_v = atol(W.Strings[3]);
+  long len_p = atol(W.Strings[4]);
+  long len_d = atol(W.Strings[5]);
+  if (len != len_v + len_p + len_d) {
+    cout << "bad input file" << endl;
+    abort();
+  }
+
+  myVector<uintE> vertex_delta;
+  myVector<int> pos_delta;
+  myVector<uintE> dst_delta;
+  vertex_delta.resize(len_v);
+  vertex_delta.resize(len_p);
+  vertex_delta.resize(len_d);
+  {parallel_for(long i=0; i < len_v; i++) vertex_delta[i, atol(W.Strings[i+6])];}
+  {parallel_for(long j=0; j < len_p; j++) pos_delta[j, atol(W.Strings[j+len_v+6])];}
+  {parallel_for(long k=0; k < len_d; k++) dst_delta[k, atol(W.Strings[k+len_v+len_p+6])];}
+
+  return delta<vertex>(version_start, version_end, vertex_delta, pos_delta, dst_delta);
+}
+
+template <class vertex>
+delta<vertex> readDeltaFromLog(string fname, graph<vertex> & ga) {
+  ifstream fin(fname);
+  if (!fin) {
+    cout << "bad input delta file " << endl;
+  }
+
+  cout << "begin to parse delta file" << endl;
+
+  string line;
+  myVector<intTriple> logs;
+  int srcv, dstv, wgh;
+  while(getline(fin, line)) {
+    if (line[0] == '#' || line[0] == '%') {
+      continue;
+    }
+    istringstream iss(line);
+    iss >> srcv >> dstv >> wgh;
+    logs.push_back(make_pair(srcv, make_pair(dstv, wgh)));
+  }
+  return delta<vertex>(ga, logs);
+} 
+
+template <class vertex>
 graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) {
   words W;
   if (mmap) {
@@ -219,30 +280,33 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) {
     }}
   //W.del(); // to deal with performance bug in malloc
 
-  vertex* v = newA(vertex,n);
 
-  {parallel_for (uintT i=0; i < n; i++) {
-    uintT o = offsets[i];
-    uintT l = ((i == n-1) ? m : offsets[i+1])-offsets[i];
-    v[i].setOutDegree(l);
+  myVector<vertex> v ;
+  v.resize(n);
+//
 #ifndef WEIGHTED
-    v[i].setOutNeighbors(edges+o);
+  {parallel_for(uintT i = 0; i < n; i++) {
+	  uintT o = offsets[i];
+	  uintT l = (i == n - 1) ? m : offsets[i + 1];
+	  for (uintT j = o; j < l; j++)
+		  v[i].outNeighbors.push_back(edges[j]);
+  }}//Put the outneighbors of each edge into the corresponding vector
 #else
-    v[i].setOutNeighbors(edges+2*o);
 #endif
-    }}
+	
+
 
   if(!isSymmetric) {
     uintT* tOffsets = newA(uintT,n);
-    {parallel_for(long i=0;i<n;i++) tOffsets[i] = INT_T_MAX;}
+    {parallel_for(long i=0; i<n; i++) tOffsets[i] = INT_T_MAX;}
 #ifndef WEIGHTED
-    intPair* temp = newA(intPair,m);
+    intPair* temp = newA(intPair, m);
 #else
-    intTriple* temp = newA(intTriple,m);
+    intTriple* temp = newA(intTriple, m);
 #endif
     {parallel_for(long i=0;i<n;i++){
       uintT o = offsets[i];
-      for(uintT j=0;j<v[i].getOutDegree();j++){
+      for(uintT j=0;j < v[i].getOutDegree();j++){
 #ifndef WEIGHTED
 	temp[o+j] = make_pair(v[i].getOutNeighbor(j),i);
 #else
@@ -254,7 +318,7 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) {
 
 #ifndef WEIGHTED
 #ifndef LOWMEM
-    intSort::iSort(temp,m,n+1,getFirst<uintE>());
+    intSort::iSort(temp,m,n+1,getFirst<uintE>());//sort temp by the first
 #else
     quickSort(temp,m,pairFirstCmp<uintE>());
 #endif
@@ -292,17 +356,16 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) {
     //fill in offsets of degree 0 vertices by taking closest non-zero
     //offset to the right
     sequence::scanIBack(tOffsets,tOffsets,n,minF<uintT>(),(uintT)m);
-
-    {parallel_for(long i=0;i<n;i++){
-      uintT o = tOffsets[i];
-      uintT l = ((i == n-1) ? m : tOffsets[i+1])-tOffsets[i];
-      v[i].setInDegree(l);
 #ifndef WEIGHTED
-      v[i].setInNeighbors(inEdges+o);
+	{parallel_for(uintT i = 0; i < n; i++) {
+		uintT o = tOffsets[i];
+		uintT l = (i == n - 1) ? m : tOffsets[i + 1];
+		for (uintT j = o; j < l; j++)
+			v[i].outNeighbors.push_back(inEdges[j]);
+	}}//Put the inneighbors of each edge into the corresponding vector
 #else
-      v[i].setInNeighbors(inEdges+2*o);
 #endif
-      }}
+    
 
     free(tOffsets);
     Uncompressed_Mem<vertex>* mem = new Uncompressed_Mem<vertex>(v,n,m,edges,inEdges);

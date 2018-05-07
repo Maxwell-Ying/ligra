@@ -29,6 +29,7 @@
 #include <cstring>
 #include <string>
 #include <algorithm>
+#include "myVector.h"
 #include "parallel.h"
 #include "gettime.h"
 #include "utils.h"
@@ -41,6 +42,7 @@
 #include "gettime.h"
 #include "index_map.h"
 #include "edgeMap_utils.h"
+#include "delta.h"
 using namespace std;
 
 //*****START FRAMEWORK*****
@@ -58,7 +60,7 @@ template <class data, class vertex, class VS, class F>
 vertexSubsetData<data> edgeMapDense(graph<vertex> GA, VS& vertexSubset, F &f, const flags fl) {
   using D = tuple<bool, data>;
   long n = GA.n;
-  vertex *G = GA.V;
+  vertex *G = GA.getvertex();
   if (should_output(fl)) {
     D* next = newA(D, n);
     auto g = get_emdense_gen<data>(next);
@@ -84,7 +86,7 @@ template <class data, class vertex, class VS, class F>
 vertexSubsetData<data> edgeMapDenseForward(graph<vertex> GA, VS& vertexSubset, F &f, const flags fl) {
   using D = tuple<bool, data>;
   long n = GA.n;
-  vertex *G = GA.V;
+  vertex *G = GA.getvertex();
   if (should_output(fl)) {
     D* next = newA(D, n);
     auto g = get_emdense_forward_gen<data>(next);
@@ -235,7 +237,7 @@ vertexSubsetData<data> edgeMapData(graph<vertex>& GA, VS &vs, F f,
     intT threshold = -1, const flags& fl=0) {
   long numVertices = GA.n, numEdges = GA.m, m = vs.numNonzeros();
   if(threshold == -1) threshold = numEdges/20; //default threshold
-  vertex *G = GA.V;
+  vertex *G = GA.getvertex();
   if (numVertices != vs.numRows()) {
     cout << "edgeMap: Sizes Don't match" << endl;
     abort();
@@ -243,7 +245,8 @@ vertexSubsetData<data> edgeMapData(graph<vertex>& GA, VS &vs, F f,
   if (vs.size() == 0) return vertexSubsetData<data>(numVertices);
   vs.toSparse();
   uintT* degrees = newA(uintT, m);
-  vertex* frontierVertices = newA(vertex,m);
+  // vertex* frontierVertices = newA(vertex,m);
+  vertex * frontierVertices = new vertex[m];
   {parallel_for (size_t i=0; i < m; i++) {
     uintE v_id = vs.vtx(i);
     vertex v = G[v_id];
@@ -255,7 +258,8 @@ vertexSubsetData<data> edgeMapData(graph<vertex>& GA, VS &vs, F f,
   if (outDegrees == 0) return vertexSubsetData<data>(numVertices);
   if (m + outDegrees > threshold) {
     vs.toDense();
-    free(degrees); free(frontierVertices);
+    free(degrees);
+    delete[] frontierVertices;
     return (fl & dense_forward) ?
       edgeMapDenseForward<data, vertex, VS, F>(GA, vs, f, fl) :
       edgeMapDense<data, vertex, VS, F>(GA, vs, f, fl);
@@ -283,7 +287,7 @@ template <class vertex, class P>
 vertexSubsetData<uintE> packEdges(graph<vertex>& GA, vertexSubset& vs, P& p, const flags& fl=0) {
   using S = tuple<uintE, uintE>;
   vs.toSparse();
-  vertex* G = GA.V; long m = vs.numNonzeros(); long n = vs.numRows();
+  vertex* G = GA.getvertex(); long m = vs.numNonzeros(); long n = vs.numRows();
   if (vs.size() == 0) {
     return vertexSubsetData<uintE>(n);
   }
@@ -333,7 +337,7 @@ vertexSubsetData<uintE> edgeMapFilter(graph<vertex>& GA, vertexSubset& vs, P& p,
   if (fl & pack_edges) {
     return packEdges<vertex, P>(GA, vs, p, fl);
   }
-  vertex* G = GA.V; long m = vs.numNonzeros(); long n = vs.numRows();
+  vertex* G = GA.getvertex(); long m = vs.numNonzeros(); long n = vs.numRows();
   using S = tuple<uintE, uintE>;
   if (vs.size() == 0) {
     return vertexSubsetData<uintE>(n);
@@ -469,30 +473,30 @@ int parallel_main(int argc, char* argv[]) {
   bool mmap = P.getOptionValue("-m");
   //cout << "mmap = " << mmap << endl;
   long rounds = P.getOptionLongValue("-rounds",3);
-  if (compressed) {
-    if (symmetric) {
-      graph<compressedSymmetricVertex> G =
-        readCompressedGraph<compressedSymmetricVertex>(iFile,symmetric,mmap); //symmetric graph
-      Compute(G,P);
-      for(int r=0;r<rounds;r++) {
-        startTime();
-        Compute(G,P);
-        nextTime("Running time");
-      }
-      G.del();
-    } else {
-      graph<compressedAsymmetricVertex> G =
-        readCompressedGraph<compressedAsymmetricVertex>(iFile,symmetric,mmap); //asymmetric graph
-      Compute(G,P);
-      if(G.transposed) G.transpose();
-      for(int r=0;r<rounds;r++) {
-        startTime();
-        Compute(G,P);
-        nextTime("Running time");
-        if(G.transposed) G.transpose();
-      }
-      G.del();
-    }
+  if (compressed) { // TODO::need repair compressed like  // if(compressed)
+    // if (symmetric) {
+    //   graph<compressedSymmetricVertex> G =
+    //     readCompressedGraph<compressedSymmetricVertex>(iFile,symmetric,mmap); //symmetric graph
+    //   Compute(G,P);
+    //   for(int r=0;r<rounds;r++) {
+    //     startTime();
+    //     Compute(G,P);
+    //     nextTime("Running time");
+    //   }
+    //   G.del();
+    // } else {
+    //   graph<compressedAsymmetricVertex> G =
+    //     readCompressedGraph<compressedAsymmetricVertex>(iFile,symmetric,mmap); //asymmetric graph
+    //   Compute(G,P);
+    //   if(G.transposed) G.transpose();
+    //   for(int r=0;r<rounds;r++) {
+    //     startTime();
+    //     Compute(G,P);
+    //     nextTime("Running time");
+    //     if(G.transposed) G.transpose();
+    //   }
+    //   G.del();
+    // }
   } else {
     if (symmetric) {
       graph<symmetricVertex> G =

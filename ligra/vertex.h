@@ -1,6 +1,7 @@
 #ifndef VERTEX_H
 #define VERTEX_H
 #include "vertexSubset.h"
+#include "myVector.h"
 using namespace std;
 
 namespace decode_uncompressed {
@@ -187,54 +188,71 @@ namespace decode_uncompressed {
 
 struct symmetricVertex {
 #ifndef WEIGHTED
-  uintE* neighbors;
+  myVector<uintE> outNeighbors;
 #else
-  intE* neighbors;
+  myVector<intE> outNeighbors;
 #endif
-  uintT degree;
-  void del() {free(neighbors); }
+  void del() { outNeighbors.clear(); }
 #ifndef WEIGHTED
-symmetricVertex(uintE* n, uintT d)
+symmetricVertex(myVector<uintE> n)
 #else
-symmetricVertex(intE* n, uintT d)
+symmetricVertex(myVector<intE> n)
 #endif
-: neighbors(n), degree(d) {}
-#ifndef WEIGHTED
-  uintE* getInNeighbors () { return neighbors; }
-  const uintE* getInNeighbors () const { return neighbors; }
-  uintE* getOutNeighbors () { return neighbors; }
-  const uintE* getOutNeighbors () const { return neighbors; }
-  uintE getInNeighbor(uintT j) const { return neighbors[j]; }
-  uintE getOutNeighbor(uintT j) const { return neighbors[j]; }
+: outNeighbors(n) {}
 
-  void setInNeighbor(uintT j, uintE ngh) { neighbors[j] = ngh; }
-  void setOutNeighbor(uintT j, uintE ngh) { neighbors[j] = ngh; }
-  void setInNeighbors(uintE* _i) { neighbors = _i; }
-  void setOutNeighbors(uintE* _i) { neighbors = _i; }
+symmetricVertex()
+#ifndef WEIGHTED
+{ outNeighbors = myVector<uintE>(); }
+#else
+{ outNeighbors = myVector<intE>(); }
+#endif
+
+#ifndef WEIGHTED
+  uintE* getInNeighbors () { return outNeighbors.data(); }
+  const uintE* getInNeighbors () const { return outNeighbors.data(); }
+  uintE* getOutNeighbors () { return outNeighbors.data(); }
+  const uintE* getOutNeighbors () const { return outNeighbors.data(); }
+  uintE getInNeighbor(uintT j) const { return outNeighbors[j]; }
+  uintE getOutNeighbor(uintT j) const { return outNeighbors[j]; }
+
+  void setInNeighbor(uintT j, uintE ngh) { outNeighbors[j] = ngh; }
+  void setOutNeighbor(uintT j, uintE ngh) { outNeighbors[j] = ngh; }
+  void setInNeighbors(uintE* _i) { return ; }
+  void setOutNeighbors(uintE* _i) { return ; }
 #else
   //weights are stored in the entry after the neighbor ID
   //so size of neighbor list is twice the degree
-  intE* getInNeighbors () { return neighbors; }
-  const intE* getInNeighbors () const { return neighbors; }
-  intE* getOutNeighbors () { return neighbors; }
-  const intE* getOutNeighbors () const { return neighbors; }
-  intE getInNeighbor(intT j) const { return neighbors[2*j]; }
-  intE getOutNeighbor(intT j) const { return neighbors[2*j]; }
-  intE getInWeight(intT j) const { return neighbors[2*j+1]; }
-  intE getOutWeight(intT j) const { return neighbors[2*j+1]; }
-  void setInNeighbor(uintT j, uintE ngh) { neighbors[2*j] = ngh; }
-  void setOutNeighbor(uintT j, uintE ngh) { neighbors[2*j] = ngh; }
-  void setInWeight(uintT j, intE wgh) { neighbors[2*j+1] = wgh; }
-  void setOutWeight(uintT j, intE wgh) { neighbors[2*j+1] = wgh; }
-  void setInNeighbors(intE* _i) { neighbors = _i; }
-  void setOutNeighbors(intE* _i) { neighbors = _i; }
+  intE* getInNeighbors () { return outNeighbors.data(); }
+  const intE* getInNeighbors () const { return outNeighbors.data(); }
+  intE* getOutNeighbors () { return outNeighbors.data(); }
+  const intE* getOutNeighbors () const { return outNeighbors.data(); }
+  intE getInNeighbor(intT j) const { return outNeighbors[2*j]; }
+  intE getOutNeighbor(intT j) const { return outNeighbors[2*j]; }
+  intE getInWeight(intT j) const { return outNeighbors[2*j+1]; }
+  intE getOutWeight(intT j) const { return outNeighbors[2*j+1]; }
+  void setInNeighbor(uintT j, uintE ngh) { outNeighbors[2*j] = ngh; }
+  void setOutNeighbor(uintT j, uintE ngh) { outNeighbors[2*j] = ngh; }
+  void setInWeight(uintT j, intE wgh) { outNeighbors[2*j+1] = wgh; }
+  void setOutWeight(uintT j, intE wgh) { outNeighbors[2*j+1] = wgh; }
+  void setInNeighbors(intE* _i) {  }
+  void setOutNeighbors(intE* _i) {  }
 #endif
 
-  uintT getInDegree() const { return degree; }
-  uintT getOutDegree() const { return degree; }
-  void setInDegree(uintT _d) { degree = _d; }
-  void setOutDegree(uintT _d) { degree = _d; }
+  uintT getInDegree() const { return outNeighbors.size(); }
+  uintT getOutDegree() const { return outNeighbors.size(); }
+  void setInDegree(uintT _d) { return;  }
+  void setOutDegree(uintT _d) { return;  }
+  uintT	find(const uintE &val) { outNeighbors.find(val); }
   void flipEdges() {}
+
+  symmetricVertex& operator=(const symmetricVertex & other) {
+    
+    if (&other != this) {
+      outNeighbors = other.outNeighbors;
+    }
+    
+    return *this;
+  }
 
   template <class VS, class F, class G>
   inline void decodeInNghBreakEarly(long v_id, VS& vertexSubset, F &f, G &g, bool parallel = 0) {
@@ -275,35 +293,51 @@ symmetricVertex(intE* n, uintT d)
 
 struct asymmetricVertex {
 #ifndef WEIGHTED
-  uintE* inNeighbors, *outNeighbors;
+  myVector<uintE> inNeighbors, outNeighbors;
 #else
-  intE* inNeighbors, *outNeighbors;
+  myVector<intE> inNeighbors, outNeighbors;
 #endif
-  uintT outDegree;
-  uintT inDegree;
-  void del() {free(inNeighbors); free(outNeighbors);}
+  // uintT outDegree;
+  // uintT inDegree;
+  void del() {inNeighbors.clear(); outNeighbors.clear();}
+
 #ifndef WEIGHTED
-asymmetricVertex(uintE* iN, uintE* oN, uintT id, uintT od)
+asymmetricVertex(myVector<uintE> iN, myVector<uintE> oN)
 #else
-asymmetricVertex(intE* iN, intE* oN, uintT id, uintT od)
+asymmetricVertex(myVector<intE> iN, myVector<intE> oN)
 #endif
-: inNeighbors(iN), outNeighbors(oN), inDegree(id), outDegree(od) {}
+: inNeighbors(iN), outNeighbors(oN){}
+
+asymmetricVertex()
 #ifndef WEIGHTED
-  uintE* getInNeighbors () { return inNeighbors; }
-  const uintE* getInNeighbors () const { return inNeighbors; }
-  uintE* getOutNeighbors () { return outNeighbors; }
-  const uintE* getOutNeighbors () const { return outNeighbors; }
+{
+	inNeighbors = myVector<uintE>();
+	outNeighbors = myVector<uintE>();
+}
+#else
+{	
+	inNeighbors = myVector<intE>();
+	outNeighbors = myVector<intE>();
+}
+#endif
+
+#ifndef WEIGHTED
+  uintE* getInNeighbors () { return inNeighbors.data(); }
+  const uintE* getInNeighbors () const { return inNeighbors.data(); }
+  uintE* getOutNeighbors () { return outNeighbors.data(); }
+  const uintE* getOutNeighbors () const { return outNeighbors.data(); }
   uintE getInNeighbor(uintT j) const { return inNeighbors[j]; }
   uintE getOutNeighbor(uintT j) const { return outNeighbors[j]; }
   void setInNeighbor(uintT j, uintE ngh) { inNeighbors[j] = ngh; }
   void setOutNeighbor(uintT j, uintE ngh) { outNeighbors[j] = ngh; }
-  void setInNeighbors(uintE* _i) { inNeighbors = _i; }
-  void setOutNeighbors(uintE* _i) { outNeighbors = _i; }
+  // TODO:: 
+  void setInNeighbors(uintE* _i) { return;  }
+  void setOutNeighbors(uintE* _i) { return;  }
 #else
-  intE* getInNeighbors () { return inNeighbors; }
-  const intE* getInNeighbors () const { return inNeighbors; }
-  intE* getOutNeighbors () { return outNeighbors; }
-  const intE* getOutNeighbors () const { return outNeighbors; }
+  intE* getInNeighbors () { return inNeighbors.data(); }
+  const intE* getInNeighbors () const { return inNeighbors.data(); }
+  intE* getOutNeighbors () { return outNeighbors.data(); }
+  const intE* getOutNeighbors () const { return outNeighbors.data(); }
   intE getInNeighbor(uintT j) const { return inNeighbors[2*j]; }
   intE getOutNeighbor(uintT j) const { return outNeighbors[2*j]; }
   intE getInWeight(uintT j) const { return inNeighbors[2*j+1]; }
@@ -312,15 +346,17 @@ asymmetricVertex(intE* iN, intE* oN, uintT id, uintT od)
   void setOutNeighbor(uintT j, uintE ngh) { outNeighbors[2*j] = ngh; }
   void setInWeight(uintT j, uintE wgh) { inNeighbors[2*j+1] = wgh; }
   void setOutWeight(uintT j, uintE wgh) { outNeighbors[2*j+1] = wgh; }
-  void setInNeighbors(intE* _i) { inNeighbors = _i; }
-  void setOutNeighbors(intE* _i) { outNeighbors = _i; }
+  void setInNeighbors(intE* _i) {  }
+  void setOutNeighbors(intE* _i) {  }
 #endif
 
-  uintT getInDegree() const { return inDegree; }
-  uintT getOutDegree() const { return outDegree; }
-  void setInDegree(uintT _d) { inDegree = _d; }
-  void setOutDegree(uintT _d) { outDegree = _d; }
-  void flipEdges() { swap(inNeighbors,outNeighbors); swap(inDegree,outDegree); }
+    uintT getInDegree() const { return inNeighbors.size(); }
+  uintT getOutDegree() const { return outNeighbors.size(); }
+  uintT	find(const uintE &val) { outNeighbors.find(val); }
+  // TODO::::
+  void setInDegree(uintT _d) { return;  }
+  void setOutDegree(uintT _d) { return;  }
+  void flipEdges() { inNeighbors.swap(outNeighbors);  }
 
   template <class VS, class F, class G>
   inline void decodeInNghBreakEarly(long v_id, VS& vertexSubset, F &f, G &g, bool parallel = 0) {

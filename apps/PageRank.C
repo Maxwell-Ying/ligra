@@ -68,7 +68,7 @@ struct PR_Vertex_Reset {
 
 template <class vertex>
 void Compute(graph<vertex>& GA, commandLine P) {
-  long maxIters = P.getOptionLongValue("-maxiters",100);
+  long maxIters = P.getOptionLongValue("-maxiters",1);
   const intE n = GA.n;
   const double damping = 0.85, epsilon = 0.0000001;
   
@@ -80,11 +80,14 @@ void Compute(graph<vertex>& GA, commandLine P) {
   bool* frontier = newA(bool,n);
   {parallel_for(long i=0;i<n;i++) frontier[i] = 1;}
 
+  delta<vertex> da = readDeltaFromLog<vertex>(
+    "/home/ytw/graphData/wordnet/wordnet-words/delta1-1-60.log", GA);
+
   vertexSubset Frontier(n,n,frontier);
-  
+
   long iter = 0;
   while(iter++ < maxIters) {
-    edgeMap(GA,Frontier,PR_F<vertex>(p_curr,p_next,GA.V),0, no_output);
+    edgeMap(GA,Frontier,PR_F<vertex>(p_curr,p_next,GA.getvertex()),0, no_output);
     vertexMap(Frontier,PR_Vertex_F(p_curr,p_next,damping,n));
     //compute L1-norm between p_curr and p_next
     {parallel_for(long i=0;i<n;i++) {
@@ -95,6 +98,9 @@ void Compute(graph<vertex>& GA, commandLine P) {
     //reset p_curr
     vertexMap(Frontier,PR_Vertex_Reset(p_curr));
     swap(p_curr,p_next);
+    apply(GA, da);
+    abort();
+    revert(GA, da);
   }
   Frontier.del(); free(p_curr); free(p_next); 
 }
