@@ -99,8 +99,9 @@ void Compute(graph<vertex>& GA, commandLine P) {
     vertexMap(Frontier,PR_Vertex_Reset(p_curr));
     swap(p_curr,p_next);
     apply(GA, da);
-    abort();
+    cout << "finish apply" << endl;
     revert(GA, da);
+    cout << "finish revert" << endl;
   }
   Frontier.del(); free(p_curr); free(p_next); 
 }

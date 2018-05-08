@@ -14,7 +14,7 @@ struct logLT {
     if (a.first != b.first) {
       return a.first < b.first;
     } else if (a.second.second != b.second.second) {
-      return a.second.second < b.second.second;
+      return a.second.second > b.second.second;
     } else {
       return a.second.first < b.second.first;
     }
@@ -44,31 +44,34 @@ struct delta {
         if (pos == -1) {
           std::cout << "didnt find delete vertex" << std::endl;
         }
-        tmp.second.second = pos;
+        log[i].second.second = pos;
       } else if (tmp.second.second == 1){
         add_count += 1;
-        tmp.second.second = -2;
+        log[i].second.second = -2;
       } else {
         std::cout << "strange weight : " << tmp.second.second << endl;
       }
-    }           // TODO :: 缺乏必要的错误处理，例如在检测到错误条目的时候删除对应的log
+    }
+    // std::cout << log[1].second.second << std::endl;
+               // TODO :: 缺乏必要的错误处理，例如在检测到错误条目的时候删除对应的log
                 //         假设已经进行处理，之后的数据为正常数据。
     quickSort(log.data(), add_count+del_count, logLT());
     // sort(log);  //  TODO:: 排序尝试使用quicksort中的排序方法，
                 //具体用法有待研究
-
+    // std::cout << log[1].second.second << std::endl;
 
     int previous = -1;
     int current;
     int data;
     int weight;
     int pos = 0;
-    int flag = 0;
+    int flag = 0; // -1标志该位置上一次进行了删除条目的添加
+                  //  1标志进行了添加条目的添加
     for(int i=0; i<add_count+del_count; i++) {
       current = log[i].first;
       data = log[i].second.first;
       weight = log[i].second.second;
-      
+
       if (current == previous) {
         if (flag == -1 && weight >= 0) {
           dstAndPos.push_back(data);
@@ -83,8 +86,6 @@ struct delta {
           dstAndPos.push_back(data);
           pos += 1;
         } else {
-          std::cout << flag << "    " << weight << endl;
-          std::cout << current << "    " << previous << endl;
           std::cout << "unexcept situation" << std::endl;
         }
       } else {
@@ -122,8 +123,8 @@ int apply(graph<vertex> & graph, delta<vertex> & da) {
   }
 
   int count = (int)da.vertexs.size();
-  cout << count << endl;
-  abort();
+  // cout << count << endl;
+  
   parallel_for(int i=0; i<count; i++) {
     // get target vertex
     vertex& vtmp = graph.getvertex()[da.vertexs[i]];
@@ -151,11 +152,15 @@ int revert(graph<vertex> &graph, delta<vertex> &da) {
   int count = (int) da.vertexs.size();
   parallel_for(int i=0; i<count; i++) {
     vertex& vtmp = graph.getvertex()[da.vertexs[i]];
-    for(int j=da.positions[2*i]; j<da.positions[2*i+1]; j+= 2) {
-      vtmp.outNeighbors.index_addtion(da.dstAndPos[j], da.dstAndPos[j+1]);
-    }
     for(int j=da.positions[2*i+1]; j<da.positions[2*i+2]; j+= 1) {
       vtmp.outNeighbors.pop_back();
+    }
+    for(int j=da.positions[2*i]; j<da.positions[2*i+1]; j+= 2) {
+      int ret = vtmp.outNeighbors.index_addtion(da.dstAndPos[j], da.dstAndPos[j+1]);
+      // if (da.vertexs[i] == 67002) {
+      //   // vtmp.outNeighbors.printdata();
+      //   std::cout << da.dstAndPos[j] << " " << da.dstAndPos[j+1] << endl;
+      // }
     }
   }
   graph.version = da.ve;

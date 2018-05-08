@@ -231,12 +231,16 @@ public:
 		}
 	}
 	//add element in backtracking
-	void index_addtion(const T & val, std::size_t index) {
+	int index_addtion(const T & val, std::size_t index) {
 		push_back(val);
-		if (index >= _size)
-			std::cout << "size erro in add" << std::endl;
-		else
+		if (index >= _size) {
+			std::cout << "size erro in add" << _size << " " << index << std::endl;
+			return -1;
+		}
+		else {
 			swap(index, _size - 1);
+			return _size;
+		}
 	}
 	//swap element
 	void swap(const std::size_t index1, const std::size_t index2) {
@@ -262,6 +266,14 @@ public:
 				return i;
 		}
 		return -1;
+	}
+
+	void printdata() {
+		std::cout << "vector contains : ";
+		for(auto i = 0; i < _size; i++) {
+			std::cout << _data[i] << " ";
+		}
+		std::cout << std::endl;
 	}
 private:
 	iterator _data;
