@@ -155,12 +155,8 @@ int revert(graph<vertex> &graph, delta<vertex> &da) {
     for(int j=da.positions[2*i+1]; j<da.positions[2*i+2]; j+= 1) {
       vtmp.outNeighbors.pop_back();
     }
-    for(int j=da.positions[2*i]; j<da.positions[2*i+1]; j+= 2) {
-      int ret = vtmp.outNeighbors.index_addtion(da.dstAndPos[j], da.dstAndPos[j+1]);
-      // if (da.vertexs[i] == 67002) {
-      //   // vtmp.outNeighbors.printdata();
-      //   std::cout << da.dstAndPos[j] << " " << da.dstAndPos[j+1] << endl;
-      // }
+    for(int j=da.positions[2*i+1]-2; j>=da.positions[2*i]; j-= 2) {
+      vtmp.outNeighbors.index_addtion(da.dstAndPos[j], da.dstAndPos[j+1]);
     }
   }
   graph.version = da.ve;
