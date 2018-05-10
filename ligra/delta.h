@@ -56,9 +56,6 @@ struct delta {
                // TODO :: 缺乏必要的错误处理，例如在检测到错误条目的时候删除对应的log
                 //         假设已经进行处理，之后的数据为正常数据。
     quickSort(log.data(), add_count+del_count, logLT());
-    // sort(log);  //  TODO:: 排序尝试使用quicksort中的排序方法，
-                //具体用法有待研究
-    // std::cout << log[1].second.second << std::endl;
 
     int previous = -1;
     int current;
@@ -114,6 +111,17 @@ struct delta {
   }
 };
 
+template <class vertex> 
+struct deltaVector {
+  myVector<delta<vertex>> allDelta;
+
+
+  // version start from 0, max version should be count + 1
+  int get_max_version() {
+    return allDelta.size();
+  }
+};
+
 template <class vertex>
 int apply(graph<vertex> & graph, delta<vertex> & da) {
   // version check
@@ -159,7 +167,53 @@ int revert(graph<vertex> &graph, delta<vertex> &da) {
       vtmp.outNeighbors.index_addtion(da.dstAndPos[j], da.dstAndPos[j+1]);
     }
   }
-  graph.version = da.ve;
+  graph.version = da.vs;
+  return 0;
+}
+
+template <class vertex> 
+int forward(graph<vertex> & ga, deltaVector<vertex> & das, int step = 1) {
+  if (step == 0) {
+    cout << "forward 0 step, that's to say, nothing happened" << endl;
+    return 0;
+  }else if (step < 0) {
+    return backward(ga, das, -1 * step);
+  }
+  int version_start = ga.getversion();
+  int version_end = version_start + step;
+  if (version_end > das.get_max_version()) {
+    cout << "try to get far version than exist, nothing happened." << endl;
+    cout << version_end << " > " << das.get_max_version() << endl;
+    return -1;
+  }
+  for (auto i = version_start; i < version_end; i++) {
+    apply(ga,das.allDelta[i]);
+  }
+  return 0;
+}
+
+template <class vertex> 
+int backward(graph<vertex> & ga, deltaVector<vertex> & das, int step = 1) {
+  if (step == 0) {
+    cout << "backward 0 step, that's to say, nothing happened" << endl;
+    return 0;
+  }else if (step < 0) {
+    return forward(ga, das, -1 * step);
+  }
+  int version_start = ga.getversion();
+  if (version_start > das.get_max_version()) {
+    cout << "try to travel from some version not exists: " << das.get_max_version() << endl;
+    return -1;
+  }
+  int version_end = version_start - step;
+  if (version_end < 0) {
+    cout << "try to get negative version " << version_end << ", nothing happened." << endl;
+    return -1;
+  }
+
+  for (auto i = version_start; i > version_end; i--) {
+    revert(ga,das.allDelta[i-1]);
+  }
   return 0;
 }
 

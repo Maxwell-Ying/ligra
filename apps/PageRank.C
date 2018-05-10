@@ -80,8 +80,8 @@ void Compute(graph<vertex>& GA, commandLine P) {
   bool* frontier = newA(bool,n);
   {parallel_for(long i=0;i<n;i++) frontier[i] = 1;}
 
-  delta<vertex> da = readDeltaFromLog<vertex>(
-    "/home/ytw/graphData/wordnet/wordnet-words/delta1-1-60.log", GA);
+  // delta<vertex> da = readDeltaFromLog<vertex>(
+  //   "/home/ytw/graphData/wordnet/wordnet-words/delta1-1-60.log", GA);
 
   vertexSubset Frontier(n,n,frontier);
 
@@ -98,10 +98,6 @@ void Compute(graph<vertex>& GA, commandLine P) {
     //reset p_curr
     vertexMap(Frontier,PR_Vertex_Reset(p_curr));
     swap(p_curr,p_next);
-    apply(GA, da);
-    cout << "finish apply" << endl;
-    revert(GA, da);
-    cout << "finish revert" << endl;
   }
   Frontier.del(); free(p_curr); free(p_next); 
 }

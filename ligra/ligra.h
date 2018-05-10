@@ -501,10 +501,14 @@ int parallel_main(int argc, char* argv[]) {
     if (symmetric) {
       graph<symmetricVertex> G =
         readGraph<symmetricVertex>(iFile,compressed,symmetric,binary,mmap); //symmetric graph
+      deltaVector<symmetricVertex> das = 
+        readDeltasFromFiles<symmetricVertex>("/home/ytw/graphData/wordnet/wordnet-words/", rounds + 1);
       Compute(G,P);
+      forward(G, das);
       for(int r=0;r<rounds;r++) {
         startTime();
         Compute(G,P);
+        forward(G, das);
         nextTime("Running time");
       }
       G.del();

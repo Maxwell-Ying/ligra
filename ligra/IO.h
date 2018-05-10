@@ -222,6 +222,17 @@ delta<vertex> readDeltaFromLog(string fname, graph<vertex> & ga) {
 } 
 
 template <class vertex>
+deltaVector<vertex> readDeltasFromFiles(string dir, int count) {
+  deltaVector<vertex> deltas;
+  for(auto i = 0; i < count; i++) {
+    string deltafilename = dir + "delta" + to_string(i);
+    char * fname = deltafilename.c_str();
+    deltas.allDelta.push_back(readDeltaFromFile<vertex>(fname));
+  }
+  return deltas;
+}
+
+template <class vertex>
 graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) {
   words W;
   if (mmap) {
