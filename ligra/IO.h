@@ -198,6 +198,17 @@ delta<vertex> readDeltaFromFile(char* fname) {
   return delta<vertex>(version_start, version_end, vertex_delta, pos_delta, dst_delta);
 }
 
+template <class vertex> 
+bigDelta<vertex> readbigDeltaFromFiles(string & dir, int count) {
+  bigDelta<vertex> bigdelta;
+  for(auto i = 0; i < count; i++) {
+    string deltafilename = dir + "delta" + to_string(i);
+    char * fname - deltafilename.c_str();
+    bigdelta.append(readDeltaFromFile<vertex>(fname));
+  }
+  return bigdelta;
+}
+
 template <class vertex>
 delta<vertex> readDeltaFromLog(string fname, graph<vertex> & ga) {
   ifstream fin(fname);
@@ -222,8 +233,8 @@ delta<vertex> readDeltaFromLog(string fname, graph<vertex> & ga) {
 } 
 
 template <class vertex>
-deltaVector<vertex> readDeltasFromFiles(string dir, int count) {
- deltaVector<vertex> deltas;
+deltaVector<vertex> readDeltasFromFiles(string & dir, int count) {
+  deltaVector<vertex> deltas;
   for(auto i = 0; i < count; i++) {
     string deltafilename = dir + "delta" + to_string(i);
     char * fname = new char[strlen(deltafilename.c_str()) + 1];
