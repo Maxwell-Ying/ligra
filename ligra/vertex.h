@@ -350,7 +350,7 @@ asymmetricVertex()
   void setOutNeighbors(intE* _i) {  }
 #endif
 
-    uintT getInDegree() const { return inNeighbors.size(); }
+  uintT getInDegree() const { return inNeighbors.size(); }
   uintT getOutDegree() const { return outNeighbors.size(); }
   uintT	find(const uintE &val) { return outNeighbors.find(val); }
   // TODO::::

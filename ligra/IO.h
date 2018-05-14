@@ -188,9 +188,9 @@ delta<vertex> readDeltaFromFile(char* fname) {
   myVector<uintE> vertex_delta;
   myVector<int> pos_delta;
   myVector<uintE> dst_delta;
-  vertex_delta.resize(len_v);
-  vertex_delta.resize(len_p);
-  vertex_delta.resize(len_d);
+  vertex_delta.reserve(len_v);
+  pos_delta.reserve(len_p);
+  dst_delta.reserve(len_d);
   {parallel_for(long i=0; i < len_v; i++) vertex_delta[i, atol(W.Strings[i+6])];}
   {parallel_for(long j=0; j < len_p; j++) pos_delta[j, atol(W.Strings[j+len_v+6])];}
   {parallel_for(long k=0; k < len_d; k++) dst_delta[k, atol(W.Strings[k+len_v+len_p+6])];}
@@ -294,12 +294,13 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) {
 
 
   myVector<vertex> v ;
-  v.resize(n);
+  v.reserve(n);
 //
 #ifndef WEIGHTED
   {parallel_for(uintT i = 0; i < n; i++) {
 	  uintT o = offsets[i];
 	  uintT l = (i == n - 1) ? m : offsets[i + 1];
+    v[i].outNeighbors.reserve(l-o);
 	  for (uintT j = o; j < l; j++)
 		  v[i].outNeighbors.push_back(edges[j]);
   }}//Put the outneighbors of each edge into the corresponding vector
@@ -372,6 +373,7 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) {
 	{parallel_for(uintT i = 0; i < n; i++) {
 		uintT o = tOffsets[i];
 		uintT l = (i == n - 1) ? m : tOffsets[i + 1];
+    v[i].outNeighbors.reserve(l-o);
 		for (uintT j = o; j < l; j++)
 			v[i].outNeighbors.push_back(inEdges[j]);
 	}}//Put the inneighbors of each edge into the corresponding vector
