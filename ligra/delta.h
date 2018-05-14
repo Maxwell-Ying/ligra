@@ -6,7 +6,7 @@
 #include "vertex.h"
 
 #include "quickSort.h"
-
+#include <cstdlib>
 typedef pair<uintE, pair<uintE, intE>> intTriple;
 
 struct logLT {
@@ -22,6 +22,56 @@ struct logLT {
 };
 
 template <class vertex>
+struct delta_log{
+  myVector<intTriple> deltaLog;
+  delta_log(myVector<intTriple> _deltalog):deltaLog(_deltalog){}
+  delta_log(graph<vertex> & graph){
+    double delta_rate = 0.01;
+    uintE delta_number = graph.m * delta_rate;
+    double add_rate = 0.6;
+    double delete_rate = 1 - add_rate;
+    uintE add_number = delta_number * add_rate;
+    uintE delete_number = delta_number * delete_rate;
+    uintE n = graph.n;
+    uintE i = 0;
+    uintE j = 0;
+    while(1){
+      uintE vertex_start = rand() % n;
+      uintE vertex_end = rand() % n;
+      intE pos = graph.V[vertex_start].find[vertex_end];
+      if(pos == -1){
+        if(i == add_number)
+          continue;
+        intTriple add_log;
+        add_log.first = vertex_start;
+        add_log.second.first = vertex_end;
+        add_log.second.second = 1;
+        if(deltaLog.find(add_log) == -1){
+          deltaLog.push_back(add_log);
+          i++;
+        }   
+      }
+      else{
+        if(j == delete_number)
+          continue;
+        intTriple delete_log;
+        delete_log.first = vertex_start;
+        delete_log.second.first = vertex_end;
+        delete_log.second.second = pos;
+        if(deltaLog.find(delete_log) == -1){
+          deltaLog.push_back(delete_log);
+          j++;
+        }
+      }
+      if(i == add_number && j == delete_number)
+        break;
+      
+    }
+    quickSort(deltaLog.data(), add_number + delete_number, logLT());
+  }
+};
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+template <class vertex>
 struct delta {
   int vs, ve; // version start and version end
   myVector<uintE> vertexs;
@@ -31,31 +81,7 @@ struct delta {
   delta(int vs, int ve, myVector<uintE>& v, myVector<int>& p, myVector<uintE>& dap) :
     vs(vs), ve(ve), vertexs(v), positions(p), dstAndPos(dap) {}
 
-  delta(graph<vertex> &graph, myVector<intTriple> log) {
-    int add_count =0, del_count = 0;
-    int count = log.size();
-    for(int i=0; i < count; i++) {
-      intTriple tmp = log[i];
-      if (tmp.second.second == -1) {
-        del_count += 1;
-        int pos = graph.V[tmp.first].find(tmp.second.first);
-        // 为了编译之便，需要之后的更改。
-        
-        if (pos == -1) {
-          std::cout << "didnt find delete vertex" << std::endl;
-        }
-        log[i].second.second = pos;
-      } else if (tmp.second.second == 1){
-        add_count += 1;
-        log[i].second.second = -2;
-      } else {
-        std::cout << "strange weight : " << tmp.second.second << endl;
-      }
-    }
-    // std::cout << log[1].second.second << std::endl;
-               // TODO :: 缺乏必要的错误处理，例如在检测到错误条目的时候删除对应的log
-                //         假设已经进行处理，之后的数据为正常数据。
-    quickSort(log.data(), add_count+del_count, logLT());
+  delta(delta_log<vertex> &log,graph<vertex> &graph) {
 
     int previous = -1;
     int current;
@@ -64,7 +90,7 @@ struct delta {
     int pos = 0;
     int flag = 0; // -1标志该位置上一次进行了删除条目的添加
                   //  1标志进行了添加条目的添加
-    for(int i=0; i<add_count+del_count; i++) {
+    for(int i=0; i<log.size(); i++) {
       current = log[i].first;
       data = log[i].second.first;
       weight = log[i].second.second;

@@ -217,9 +217,7 @@ public:
 	}//
 
 	void clear() {
-		for (std::size_t i = 0; i < _size; ++i)
-			_a.destroy(_data + i);
-		_size = 0;
+		myVector<T>().swap(*this);
 	}
 	//delete element according to index
 	void index_delete(std::size_t index) {
