@@ -31,7 +31,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-
+#include <cstring>
 #include "parallel.h"
 #include "blockRadixSort.h"
 #include "quickSort.h"
@@ -223,10 +223,11 @@ delta<vertex> readDeltaFromLog(string fname, graph<vertex> & ga) {
 
 template <class vertex>
 deltaVector<vertex> readDeltasFromFiles(string dir, int count) {
-  deltaVector<vertex> deltas;
+ deltaVector<vertex> deltas;
   for(auto i = 0; i < count; i++) {
     string deltafilename = dir + "delta" + to_string(i);
-    char * fname = deltafilename.c_str();
+    char * fname = new char[strlen(deltafilename.c_str()) + 1];
+    strcpy(fname,deltafilename.c_str());
     deltas.allDelta.push_back(readDeltaFromFile<vertex>(fname));
   }
   return deltas;

@@ -4,7 +4,7 @@
 #include "graph.h"
 #include "myVector.h"
 #include "vertex.h"
-
+#include <map>
 #include "quickSort.h"
 #include <cstdlib>
 typedef pair<uintE, pair<uintE, intE>> intTriple;
@@ -26,7 +26,7 @@ struct delta_log{
   myVector<intTriple> deltaLog;
   delta_log(myVector<intTriple> _deltalog):deltaLog(_deltalog){}
   delta_log(graph<vertex> & graph){
-    double delta_rate = 0.01;
+    double delta_rate = 0.001;
     uintE delta_number = graph.m * delta_rate;
     double add_rate = 0.6;
     double delete_rate = 1 - add_rate;
@@ -35,37 +35,75 @@ struct delta_log{
     uintE n = graph.n;
     uintE i = 0;
     uintE j = 0;
+    std::map<uintE, myVector<uintE>> log_map;//用来存已在deltalog的边，去重
     while(1){
       uintE vertex_start = rand() % n;
       uintE vertex_end = rand() % n;
-      intE pos = graph.V[vertex_start].find[vertex_end];
-      if(pos == -1){
-        if(i == add_number)
-          continue;
-        intTriple add_log;
-        add_log.first = vertex_start;
-        add_log.second.first = vertex_end;
-        add_log.second.second = 1;
-        if(deltaLog.find(add_log) == -1){
-          deltaLog.push_back(add_log);
-          i++;
-        }   
+      std::map<uintE, myVector<uintE>>::iterator key = log_map.find(vertex_start);
+      if(key != log_map.end() && key->second.find(vertex_end) != -1)
+        continue;
+      else if(key == log_map.end()){
+        myVector<uintE> mv;
+        mv.push_back(vertex_end);
+        log_map[vertex_start] = mv;
+        intE pos = graph.V[vertex_start].find[vertex_end];
+        intTriple _log;
+        _log.first = vertex_start;
+        _log.second.first = vertex_end;
+        _log.second.second = pos;
+        deltaLog.push_back(_log);
+        if(pos == -1)
+          i++;     
+        else
+          j++; 
       }
-      else{
-        if(j == delete_number)
+      else if(key != log_map.end() && key->second.find(vertex_end) == -1){
+        key->second .push_back(vertex_end);
+        intE pos = graph.V[vertex_start].find[vertex_end];
+        intTriple _log;
+        _log.first = vertex_start;
+        _log.second.first = vertex_end;
+        _log.second.second = pos;
+        deltaLog.push_back(_log);
+        if(pos == -1)
+          i++;     
+        else
+          j++;
+      }
+      if(i == add_number)//默认加边先满
+        break;  
+    }
+    //在图中找减边存到deltalog中
+    while(1){
+      uintE vertex_start = rand() % n;
+      for(i = 0; i < graph.V[vertex_start].getOutDegree; i++){
+        uintE vertex_end = graph.V[vertex_start].outNeighbors[i];
+        std::map<uintE, myVector<uintE>>::iterator key = log_map.find(vertex_start);
+        if(key != log_map.end() && key->second.find(vertex_end) != -1)
           continue;
-        intTriple delete_log;
-        delete_log.first = vertex_start;
-        delete_log.second.first = vertex_end;
-        delete_log.second.second = pos;
-        if(deltaLog.find(delete_log) == -1){
-          deltaLog.push_back(delete_log);
+        else if(key == log_map.end()){
+          myVector<uintE> mv;
+          mv.push_back(vertex_end);
+          log_map[vertex_start] = mv;
+          intTriple _log;
+          _log.first = vertex_start;
+          _log.second.first = vertex_end;
+          _log.second.second = i;
+          deltaLog.push_back(_log);
+          j++;
+        }
+        else if(key != log_map.end() && key->second.find(vertex_end) == -1){
+          key->second .push_back(vertex_end);
+          intTriple _log;
+          _log.first = vertex_start;
+          _log.second.first = vertex_end;
+          _log.second.second = i;
+          deltaLog.push_back(_log);
           j++;
         }
       }
-      if(i == add_number && j == delete_number)
-        break;
-      
+      if(j == delete_number)
+          break;
     }
     quickSort(deltaLog.data(), add_number + delete_number, logLT());
   }
