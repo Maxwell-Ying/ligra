@@ -375,7 +375,7 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) {
 		uintT l = (i == n - 1) ? m : tOffsets[i + 1];
     v[i].outNeighbors.reserve(l-o);
 		for (uintT j = o; j < l; j++)
-			v[i].outNeighbors.push_back(inEdges[j]);
+			v[i].inNeighbors.push_back(inEdges[j]);
 	}}//Put the inneighbors of each edge into the corresponding vector
 #else
 #endif
