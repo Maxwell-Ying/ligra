@@ -31,12 +31,15 @@ struct delta_log{
     double add_rate = 0.6;
     double delete_rate = 1 - add_rate;
     uintE add_number = delta_number * add_rate;
-    uintE delete_number = delta_number * delete_rate;
+    uintE delete_number = delta_number - add_number;
     uintE n = graph.n;
     uintE i = 0;
     uintE j = 0;
     std::map<uintE, myVector<uintE>> log_map;//用来存已在deltalog的边，去重
     while(1){
+      if(add_count >= add_number && delete_count >= delete_number){
+        break;
+      }
       uintE vertex_start = rand() % n;
       uintE vertex_end = rand() % n;
       std::map<uintE, myVector<uintE>>::iterator key = log_map.find(vertex_start);
@@ -107,8 +110,12 @@ struct delta_log{
     }
     quickSort(deltaLog.data(), add_number + delete_number, logLT());
   }
+  int size() {
+    return deltaLog.size();
+  }
 };
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+
+
 template <class vertex>
 struct delta {
   int vs, ve; // version start and version end
@@ -120,7 +127,6 @@ struct delta {
     vs(_vs), ve(_ve), vertexs(v), positions(p), dstAndPos(dap) {}
 
   delta(delta_log<vertex> &log,graph<vertex> &graph) {
-
     int previous = -1;
     int current;
     int data;
@@ -129,21 +135,21 @@ struct delta {
     int flag = 0; // -1标志该位置上一次进行了删除条目的添加
                   //  1标志进行了添加条目的添加
     for(int i=0; i<log.size(); i++) {
-      current = log[i].first;
-      data = log[i].second.first;
-      weight = log[i].second.second;
+      current = log.deltaLog[i].first;
+      data = log.deltaLog[i].second.first;
+      weight = log.deltaLog[i].second.second;
 
       if (current == previous) {
         if (flag == -1 && weight >= 0) {
           dstAndPos.push_back(data);
           dstAndPos.push_back(weight);
           pos += 2;
-        } else if (flag == -1 && weight == -2) {
+        } else if (flag == -1 && weight < 0) {
           positions.push_back(pos);
           flag = 1;
           dstAndPos.push_back(data);
           pos += 1;
-        } else if (flag == 1 && weight == -2) {
+        } else if (flag == 1 && weight < 0) {
           dstAndPos.push_back(data);
           pos += 1;
         } else {
@@ -169,10 +175,10 @@ struct delta {
       }
       previous = current;
     }
-    positions.push_back(pos);
     vs = graph.version;
     ve = vs + 1;
   }
+
 };
 
 template <class vertex> 
@@ -192,16 +198,17 @@ struct bigDelta {
   myVector<uintE> dstAndPos;
   int append(delta<vertex> da) {
     versions.push_back(vertexs.size());
-    vertexs.resize(vertexs.size()+da.vertexs.size());
+    vertexs.reserve(vertexs.size()+da.vertexs.size());
     for (auto i = 0; i < da.vertexs.size(); i++) {
       vertexs.push_back(da.vertexs[i]);
     }
-    positions.resize(positions.size() + da.positions.size());
+    
+    positions.reserve(positions.size() + da.positions.size());
     int last_length = dstAndPos.size();
     for (auto i = 0; i < da.positions.size(); i++) {
       positions.push_back(da.positions[i]+last_length);
     }
-    dstAndPos.resize(last_length + da.dstAndPos.size());
+    dstAndPos.reserve(last_length + da.dstAndPos.size());
     for (auto i = 0; i < da.dstAndPos.size(); i++) {
       dstAndPos.push_back(da.dstAndPos[i]);
     }
@@ -221,18 +228,23 @@ int apply(graph<vertex> & graph, delta<vertex> & da) {
   }
 
   int count = (int)da.vertexs.size();
-  // cout << count << endl;
   
-  parallel_for(int i=0; i<count; i++) {
+  
+  for(int i=0; i<count; i++) {
     // get target vertex
     vertex& vtmp = graph.getvertex()[da.vertexs[i]];
     // do the delete first
     for(int j=da.positions[2*i]; j<da.positions[2*i+1]; j+= 2) {
       vtmp.outNeighbors.index_delete(da.dstAndPos[j+1]);
     }
-    // then do some add
-    for(int j=da.positions[2*i+1]; j<da.positions[2*i+2]; j+= 1) {
-      vtmp.outNeighbors.push_back(da.dstAndPos[j]);
+    if (i == count - 1) {
+      for(int j=da.positions[2*i+1]; j < da.dstAndPos.size(); j+= 1) {
+        vtmp.outNeighbors.push_back(da.dstAndPos[j]);
+      }
+    }else {
+      for(int j=da.positions[2*i+1]; j<da.positions[2*i+2]; j+= 1) {
+        vtmp.outNeighbors.push_back(da.dstAndPos[j]);
+      }
     }
   }
   graph.version = da.ve;
@@ -250,8 +262,14 @@ int revert(graph<vertex> &graph, delta<vertex> &da) {
   int count = (int) da.vertexs.size();
   {parallel_for(int i=0; i<count; i++) {
     vertex& vtmp = graph.getvertex()[da.vertexs[i]];
-    for(int j=da.positions[2*i+1]; j<da.positions[2*i+2]; j+= 1) {
-      vtmp.outNeighbors.pop_back();
+    if (i == count - 1) {
+      for(int j=da.positions[2*i+1]; da.dstAndPos.size(); j+= 1) {
+        vtmp.outNeighbors.pop_back();
+      }
+    } else {
+      for(int j=da.positions[2*i+1]; j<da.positions[2*i+2]; j+= 1) {
+        vtmp.outNeighbors.pop_back();
+      }
     }
     for(int j=da.positions[2*i+1]-2; j>=da.positions[2*i]; j-= 2) {
       vtmp.outNeighbors.index_addtion(da.dstAndPos[j], da.dstAndPos[j+1]);
@@ -290,28 +308,36 @@ int forward(graph<vertex> &ga, bigDelta<vertex> &bda, int step = 1) {
   }else if (step < 0) {
     return backward(ga, bda, -1 * step);
   }
+  
   int version_start = ga.getversion();
   int version_end = version_start + step;
-  if (version_end > bda.get_max_version()+1) {
+  int version_max = bda.get_max_version();
+  if (version_end > version_max + 1) {
     cout << "try to get far version than exist, nothing happened." << endl;
     cout << version_end << " > " << bda.get_max_version() << endl;
     return -1;
   }
-  for (auto i = version_start; i < version_end; i++) {
-    int count = i == bda.get_max_version() ? 
-                  bda.vertexs.size() - bda.versions[i] :
-                  bda.versions[i+1] - bda.versions[i];
+  for (auto ver = version_start; ver < version_end; ver++) {
+    int count = ver == version_max ? 
+                  bda.vertexs.size() - bda.versions[ver] :
+                  bda.versions[ver+1] - bda.versions[ver];
     
-    int prefix = bda.versions[i];
+    int prefix = bda.versions[ver];
     {parallel_for(int i=prefix; i<prefix + count; i++) {
-      vertex& vtmp = graph.getvertex()[da.vertexs[i]];
+      vertex& vtmp = ga.getvertex()[bda.vertexs[i]];
       // do the delete first
       for(int j=bda.positions[2*i]; j<bda.positions[2*i+1]; j+= 2) {
         vtmp.outNeighbors.index_delete(bda.dstAndPos[j+1]);
       }
       // then do some add
-      for(int j=bda.positions[2*i+1]; j<bda.positions[2*i+2]; j+= 1) {
-        vtmp.outNeighbors.push_back(bda.dstAndPos[j]);
+      if (ver == version_max && i == prefix + count - 1) {
+        for(int j=bda.positions[2*i+1]; j<bda.dstAndPos.size(); j+= 1) {
+          vtmp.outNeighbors.push_back(bda.dstAndPos[j]);
+        }
+      } else {
+        for(int j=bda.positions[2*i+1]; j<bda.positions[2*i+2]; j+= 1) {
+          vtmp.outNeighbors.push_back(bda.dstAndPos[j]);
+        }
       }
     }}
   }
@@ -343,7 +369,7 @@ int backward(graph<vertex> & ga, deltaVector<vertex> & das, int step = 1) {
   return 0;
 }
 
-template <vertex> 
+template <class vertex> 
 int backward(graph<vertex> &ga, bigDelta<vertex> &bda, int step = 1) {
   if (step == 0) {
     cout << "backward 0 step, that's to say, nothing happened" << endl;
@@ -361,20 +387,28 @@ int backward(graph<vertex> &ga, bigDelta<vertex> &bda, int step = 1) {
     cout << "try to get negative version " << version_end << ", nothing happened." << endl;
     return -1;
   }
+  int version_max = bda.get_max_version();
 
-  for (auto i = version_start-1; i > version_end-1; i--) {
-    int count = i == bda.get_max_version() ? 
-                  bda.vertexs.size() - bda.versions[i] :
-                  bda.versions[i+1] - bda.versions[i];
+  for (auto ver = version_start-1; ver > version_end-1; ver--) {
+    int count = ver == version_max ? 
+                  bda.vertexs.size() - bda.versions[ver] :
+                  bda.versions[ver+1] - bda.versions[ver];
     
-    int prefix = bda.versions[i];
-    {parallel_for(int i=prefix; i<count+prefix; i++) {
-    vertex& vtmp = graph.getvertex()[da.vertexs[i]];
-    for(int j=da.positions[2*i+1]; j<da.positions[2*i+2]; j+= 1) {
-      vtmp.outNeighbors.pop_back();
+    int prefix = bda.versions[ver];
+    
+  {parallel_for(int i=prefix; i<count+prefix; i++) {
+    vertex& vtmp = ga.getvertex()[bda.vertexs[i]];
+    if (ver == version_max && i == prefix+count-1) {
+      for(int j=bda.positions[2*i+1]; j<bda.dstAndPos.size(); j+= 1) {
+        vtmp.outNeighbors.pop_back();
+      }
+    }else {
+      for(int j=bda.positions[2*i+1]; j<bda.positions[2*i+2]; j+= 1) {
+        vtmp.outNeighbors.pop_back();
+      }
     }
-    for(int j=da.positions[2*i+1]-2; j>=da.positions[2*i]; j-= 2) {
-      vtmp.outNeighbors.index_addtion(da.dstAndPos[j], da.dstAndPos[j+1]);
+    for(int j=bda.positions[2*i+1]-2; j>=bda.positions[2*i]; j-= 2) {
+      vtmp.outNeighbors.index_addtion(bda.dstAndPos[j], bda.dstAndPos[j+1]);
     }
   }}
   }
@@ -389,6 +423,16 @@ int jump(graph<vertex> & ga, deltaVector<vertex> & das, int target) {
     return -1;
   }
   return forward(ga, das, target-das.get_max_version());
+}
+
+template <class vertex>
+int jump(graph<vertex>& ga, bigDelta<vertex>& bda, int target) {
+  if (target < 0 || target > bda.get_max_version()) {
+    cout << "try to jump to version not exist, nothing happened" << endl;
+    cout << target << "   " << bda.get_max_version() << endl;
+    return -1;
+  }
+  return forward(ga, bda, target - bda.get_max_version());
 }
 
 #endif

@@ -4,3 +4,5 @@ apps/*.h
 apps/*.hpp
 apps/decoder.C
 apps/encoder.C
+apps/*~
+*~

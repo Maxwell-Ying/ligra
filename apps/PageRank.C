@@ -80,11 +80,7 @@ void Compute(graph<vertex>& GA, commandLine P) {
   bool* frontier = newA(bool,n);
   {parallel_for(long i=0;i<n;i++) frontier[i] = 1;}
 
-  // delta<vertex> da = readDeltaFromLog<vertex>(
-  //   "/home/ytw/graphData/wordnet/wordnet-words/delta1-1-60.log", GA);
-
   vertexSubset Frontier(n,n,frontier);
-
   long iter = 0;
   while(iter++ < maxIters) {
     edgeMap(GA,Frontier,PR_F<vertex>(p_curr,p_next,GA.getvertex()),0, no_output);

@@ -186,7 +186,7 @@ delta<vertex> readDeltaFromFile(char* fname) {
   }
 
   myVector<uintE> vertex_delta;
-  myVector<int> pos_delta;
+  myVector<uintE> pos_delta;
   myVector<uintE> dst_delta;
   vertex_delta.reserve(len_v);
   pos_delta.reserve(len_p);
@@ -203,8 +203,9 @@ bigDelta<vertex> readbigDeltaFromFiles(string & dir, int count) {
   bigDelta<vertex> bigdelta;
   for(auto i = 0; i < count; i++) {
     string deltafilename = dir + "delta" + to_string(i);
-    char * fname - deltafilename.c_str();
+    char * fname = strcpy((char*)malloc(deltafilename.length()+1), deltafilename.c_str());
     bigdelta.append(readDeltaFromFile<vertex>(fname));
+    free(fname);
   }
   return bigdelta;
 }
@@ -237,9 +238,9 @@ deltaVector<vertex> readDeltasFromFiles(string & dir, int count) {
   deltaVector<vertex> deltas;
   for(auto i = 0; i < count; i++) {
     string deltafilename = dir + "delta" + to_string(i);
-    char * fname = new char[strlen(deltafilename.c_str()) + 1];
-    strcpy(fname,deltafilename.c_str());
+    char * fname = strcpy((char*)malloc(deltafilename.length()+1), deltafilename.c_str());
     deltas.allDelta.push_back(readDeltaFromFile<vertex>(fname));
+    free(fname);
   }
   return deltas;
 }
@@ -386,7 +387,7 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) {
 		uintT l = (i == n - 1) ? m : tOffsets[i + 1];
     v[i].outNeighbors.reserve(l-o);
 		for (uintT j = o; j < l; j++)
-			v[i].inNeighbors.push_back(inEdges[j]);
+			v[i].outNeighbors.push_back(inEdges[j]);
 	}}//Put the inneighbors of each edge into the corresponding vector
 #else
 #endif

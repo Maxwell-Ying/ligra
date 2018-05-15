@@ -175,7 +175,7 @@ public:
 	// Modifiers
 	template<typename InputIterator>
 	void assign(InputIterator begin, InputIterator end) {
-	std:size_t newSize = 0;
+	std::size_t newSize = 0;
 		InputIterator it;
 		for (it = begin; it != end; ++it)
 			++newSize;

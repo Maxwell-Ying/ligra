@@ -43,6 +43,7 @@
 #include "index_map.h"
 #include "edgeMap_utils.h"
 #include "delta.h"
+#include "exp_distribution.h"
 using namespace std;
 
 //*****START FRAMEWORK*****
@@ -471,6 +472,8 @@ int parallel_main(int argc, char* argv[]) {
   bool compressed = P.getOptionValue("-c");
   bool binary = P.getOptionValue("-b");
   bool mmap = P.getOptionValue("-m");
+  expDist expdist = expDist();
+  int delta_num = 9;
   //cout << "mmap = " << mmap << endl;
   long rounds = P.getOptionLongValue("-rounds",3);
   if (compressed) { // TODO::need repair compressed like  // if(compressed)
@@ -501,14 +504,18 @@ int parallel_main(int argc, char* argv[]) {
     if (symmetric) {
       graph<symmetricVertex> G =
         readGraph<symmetricVertex>(iFile,compressed,symmetric,binary,mmap); //symmetric graph
-      deltaVector<symmetricVertex> das = 
-        readDeltasFromFiles<symmetricVertex>("/home/ytw/graphData/wordnet/wordnet-words/", rounds + 1);
+      bigDelta<symmetricVertex> bdelta;
+      for (auto i = 0; i < delta_num; i++) {
+        delta_log<symmetricVertex> dlg = delta_log<symmetricVertex>(G);
+        delta<symmetricVertex> dlt = delta<symmetricVertex>(dlg, G);
+        bdelta.append(dlt);
+        apply(G, dlt);
+      }
       Compute(G,P);
-      forward(G, das);
       for(int r=0;r<rounds;r++) {
         startTime();
+        jump(G, bdelta, expdist.getRand(delta_num));
         Compute(G,P);
-        forward(G, das);
         nextTime("Running time");
       }
       G.del();
