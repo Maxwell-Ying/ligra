@@ -221,8 +221,10 @@ public:
 	}
 	//delete element according to index
 	void index_delete(std::size_t index) {
-		if (index >= _size)
+		if (index >= _size){
 			std::cout << "size erro in delete" << std::endl;
+			abort();
+		}
 		else {
 			_data[index] = _data[_size - 1];
 			_a.destroy(_data + (--_size));
@@ -233,6 +235,7 @@ public:
 		push_back(val);
 		if (index >= _size) {
 			std::cout << "size erro in add" << _size << " " << index << std::endl;
+			abort();
 			return -1;
 		}
 		else {
@@ -273,6 +276,19 @@ public:
 		}
 		std::cout << std::endl;
 	}
+
+	int check_increase() {
+		if (_size <= 1) {
+			return 0;
+		}
+		for (auto i = 1; i < _size; i++) {
+			if (_data[i-1] > _data[i]) {
+				return i;
+			}
+		}
+		return 0;
+	}
+
 private:
 	iterator _data;
 	std::size_t _size, _capacity;

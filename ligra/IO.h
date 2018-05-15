@@ -306,7 +306,7 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) {
 
 
   myVector<vertex> v ;
-  v.reserve(n);
+  v.resize(n);
 //
 #ifndef WEIGHTED
   {parallel_for(uintT i = 0; i < n; i++) {

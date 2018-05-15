@@ -502,6 +502,7 @@ int parallel_main(int argc, char* argv[]) {
     // }
   } else {
     if (symmetric) {
+      
       graph<symmetricVertex> G =
         readGraph<symmetricVertex>(iFile,compressed,symmetric,binary,mmap); //symmetric graph
       bigDelta<symmetricVertex> bdelta;
@@ -514,7 +515,9 @@ int parallel_main(int argc, char* argv[]) {
       Compute(G,P);
       for(int r=0;r<rounds;r++) {
         startTime();
-        jump(G, bdelta, expdist.getRand(delta_num));
+        int randi = expdist.getRand(delta_num);
+        cerr << "jump to version " << randi << endl;
+        jump(G, bdelta, randi);
         Compute(G,P);
         nextTime("Running time");
       }

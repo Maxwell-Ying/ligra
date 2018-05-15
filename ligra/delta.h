@@ -29,15 +29,14 @@ struct delta_log{
     double delta_rate = 0.001;
     uintE delta_number = graph.m * delta_rate;
     double add_rate = 0.6;
-    double delete_rate = 1 - add_rate;
     uintE add_number = delta_number * add_rate;
     uintE delete_number = delta_number - add_number;
     uintE n = graph.n;
-    uintE i = 0;
-    uintE j = 0;
+    uintE add_count = 0;
+    uintE del_count = 0;
     std::map<uintE, myVector<uintE>> log_map;//用来存已在deltalog的边，去重
-    while(1){
-      if(add_count >= add_number && delete_count >= delete_number){
+    while(add_count < add_number){  //默认加边先满
+      if(del_count >= delete_number) {
         break;
       }
       uintE vertex_start = rand() % n;
@@ -49,37 +48,35 @@ struct delta_log{
         myVector<uintE> mv;
         mv.push_back(vertex_end);
         log_map[vertex_start] = mv;
-        intE pos = graph.V[vertex_start].find[vertex_end];
+        intE pos = graph.V[vertex_start].find(vertex_end);
         intTriple _log;
         _log.first = vertex_start;
         _log.second.first = vertex_end;
         _log.second.second = pos;
         deltaLog.push_back(_log);
         if(pos == -1)
-          i++;     
+          add_count++;     
         else
-          j++; 
+          del_count++; 
       }
       else if(key != log_map.end() && key->second.find(vertex_end) == -1){
-        key->second .push_back(vertex_end);
-        intE pos = graph.V[vertex_start].find[vertex_end];
+        key->second.push_back(vertex_end);
+        intE pos = graph.V[vertex_start].find(vertex_end);
         intTriple _log;
         _log.first = vertex_start;
         _log.second.first = vertex_end;
         _log.second.second = pos;
         deltaLog.push_back(_log);
         if(pos == -1)
-          i++;     
+          add_count++;     
         else
-          j++;
+          del_count++;
       }
-      if(i == add_number)//默认加边先满
-        break;  
     }
     //在图中找减边存到deltalog中
-    while(1){
+    while(del_count < delete_number){
       uintE vertex_start = rand() % n;
-      for(i = 0; i < graph.V[vertex_start].getOutDegree; i++){
+      for(int i = 0; i < graph.V[vertex_start].getOutDegree(); i++){
         uintE vertex_end = graph.V[vertex_start].outNeighbors[i];
         std::map<uintE, myVector<uintE>>::iterator key = log_map.find(vertex_start);
         if(key != log_map.end() && key->second.find(vertex_end) != -1)
@@ -93,7 +90,7 @@ struct delta_log{
           _log.second.first = vertex_end;
           _log.second.second = i;
           deltaLog.push_back(_log);
-          j++;
+          del_count++;
         }
         else if(key != log_map.end() && key->second.find(vertex_end) == -1){
           key->second .push_back(vertex_end);
@@ -102,13 +99,16 @@ struct delta_log{
           _log.second.first = vertex_end;
           _log.second.second = i;
           deltaLog.push_back(_log);
-          j++;
+          del_count++;
+        }
+        if (del_count >= delete_number) {
+          break;
         }
       }
-      if(j == delete_number)
-          break;
     }
+    
     quickSort(deltaLog.data(), add_number + delete_number, logLT());
+    
   }
   int size() {
     return deltaLog.size();
@@ -175,6 +175,9 @@ struct delta {
       }
       previous = current;
     }
+    if (positions.size() % 2 && flag == -1) {
+      positions.push_back(pos);
+    }
     vs = graph.version;
     ve = vs + 1;
   }
@@ -199,15 +202,18 @@ struct bigDelta {
   int append(delta<vertex> da) {
     versions.push_back(vertexs.size());
     vertexs.reserve(vertexs.size()+da.vertexs.size());
+    
     for (auto i = 0; i < da.vertexs.size(); i++) {
       vertexs.push_back(da.vertexs[i]);
     }
     
     positions.reserve(positions.size() + da.positions.size());
     int last_length = dstAndPos.size();
+    // cout << positions.check_increase() << endl;
     for (auto i = 0; i < da.positions.size(); i++) {
       positions.push_back(da.positions[i]+last_length);
     }
+    // cout << positions.check_increase() << endl;
     dstAndPos.reserve(last_length + da.dstAndPos.size());
     for (auto i = 0; i < da.dstAndPos.size(); i++) {
       dstAndPos.push_back(da.dstAndPos[i]);
@@ -228,7 +234,6 @@ int apply(graph<vertex> & graph, delta<vertex> & da) {
   }
 
   int count = (int)da.vertexs.size();
-  
   
   for(int i=0; i<count; i++) {
     // get target vertex
@@ -341,6 +346,7 @@ int forward(graph<vertex> &ga, bigDelta<vertex> &bda, int step = 1) {
       }
     }}
   }
+  ga.version = version_end;
   return 0;
 }
 
@@ -390,12 +396,12 @@ int backward(graph<vertex> &ga, bigDelta<vertex> &bda, int step = 1) {
   int version_max = bda.get_max_version();
 
   for (auto ver = version_start-1; ver > version_end-1; ver--) {
-    int count = ver == version_max ? 
+    int count = (ver == version_max - 1) ? 
                   bda.vertexs.size() - bda.versions[ver] :
                   bda.versions[ver+1] - bda.versions[ver];
     
     int prefix = bda.versions[ver];
-    
+
   {parallel_for(int i=prefix; i<count+prefix; i++) {
     vertex& vtmp = ga.getvertex()[bda.vertexs[i]];
     if (ver == version_max && i == prefix+count-1) {
@@ -407,11 +413,13 @@ int backward(graph<vertex> &ga, bigDelta<vertex> &bda, int step = 1) {
         vtmp.outNeighbors.pop_back();
       }
     }
+    
     for(int j=bda.positions[2*i+1]-2; j>=bda.positions[2*i]; j-= 2) {
       vtmp.outNeighbors.index_addtion(bda.dstAndPos[j], bda.dstAndPos[j+1]);
     }
   }}
   }
+  ga.version = version_end;
   return 0;
 }
 
