@@ -223,7 +223,6 @@ public:
 	void index_delete(std::size_t index) {
 		if (index >= _size){
 			std::cout << "size erro in delete" << std::endl;
-			abort();
 		}
 		else {
 			_data[index] = _data[_size - 1];
@@ -235,7 +234,6 @@ public:
 		push_back(val);
 		if (index >= _size) {
 			std::cout << "size erro in add" << _size << " " << index << std::endl;
-			abort();
 			return -1;
 		}
 		else {

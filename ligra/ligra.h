@@ -44,6 +44,7 @@
 #include "edgeMap_utils.h"
 #include "delta.h"
 #include "exp_distribution.h"
+#include "get_mem.h"
 using namespace std;
 
 //*****START FRAMEWORK*****
@@ -472,8 +473,9 @@ int parallel_main(int argc, char* argv[]) {
   bool compressed = P.getOptionValue("-c");
   bool binary = P.getOptionValue("-b");
   bool mmap = P.getOptionValue("-m");
+  int delta_num = P.getOptionIntValue("-n", 9);
+  double add_rate = P.getOptionDoubleValue("-r", 0.6);
   expDist expdist = expDist();
-  int delta_num = 9;
   //cout << "mmap = " << mmap << endl;
   long rounds = P.getOptionLongValue("-rounds",3);
   if (compressed) { // TODO::need repair compressed like  // if(compressed)
@@ -506,8 +508,9 @@ int parallel_main(int argc, char* argv[]) {
       graph<symmetricVertex> G =
         readGraph<symmetricVertex>(iFile,compressed,symmetric,binary,mmap); //symmetric graph
       bigDelta<symmetricVertex> bdelta;
+      print_mem("PageRank");
       for (auto i = 0; i < delta_num; i++) {
-        delta_log<symmetricVertex> dlg = delta_log<symmetricVertex>(G);
+        delta_log<symmetricVertex> dlg = delta_log<symmetricVertex>(G, add_rate);
         delta<symmetricVertex> dlt = delta<symmetricVertex>(dlg, G);
         bdelta.append(dlt);
         apply(G, dlt);

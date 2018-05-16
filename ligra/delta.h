@@ -24,11 +24,14 @@ struct logLT {
 template <class vertex>
 struct delta_log{
   myVector<intTriple> deltaLog;
+  double add_rate;
+  double delta_rate;
   delta_log(myVector<intTriple> _deltalog):deltaLog(_deltalog){}
-  delta_log(graph<vertex> & graph){
-    double delta_rate = 0.001;
+  
+  delta_log(graph<vertex> & graph, double _add_rate, double _delta_rate = 0.001) {
+    delta_rate = _delta_rate;
+    add_rate = _add_rate;
     uintE delta_number = graph.m * delta_rate;
-    double add_rate = 0.6;
     uintE add_number = delta_number * add_rate;
     uintE delete_number = delta_number - add_number;
     uintE n = graph.n;
