@@ -221,6 +221,7 @@ struct bigDelta {
     for (auto i = 0; i < da.dstAndPos.size(); i++) {
       dstAndPos.push_back(da.dstAndPos[i]);
     }
+
     return 0;
   }
   int get_max_version() {
@@ -407,7 +408,7 @@ int backward(graph<vertex> &ga, bigDelta<vertex> &bda, int step = 1) {
 
   {parallel_for(int i=prefix; i<count+prefix; i++) {
     vertex& vtmp = ga.getvertex()[bda.vertexs[i]];
-    if (ver == version_max && i == prefix+count-1) {
+    if (ver == version_max - 1 && i == prefix+count-1) {
       for(int j=bda.positions[2*i+1]; j<bda.dstAndPos.size(); j+= 1) {
         vtmp.outNeighbors.pop_back();
       }
@@ -433,7 +434,7 @@ int jump(graph<vertex> & ga, deltaVector<vertex> & das, int target) {
     cout << target << "   " << das.get_max_version() << endl;
     return -1;
   }
-  return forward(ga, das, target-das.get_max_version());
+  return forward(ga, das, target-ga.getversion());
 }
 
 template <class vertex>
@@ -443,7 +444,7 @@ int jump(graph<vertex>& ga, bigDelta<vertex>& bda, int target) {
     cout << target << "   " << bda.get_max_version() << endl;
     return -1;
   }
-  return forward(ga, bda, target - bda.get_max_version());
+  return forward(ga, bda, target - ga.getversion());
 }
 
 #endif
