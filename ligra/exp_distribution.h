@@ -1,10 +1,12 @@
 #include <random>
-
+#include <ctime>
 using namespace std;
 struct expDist {
   default_random_engine e;
   
-  
+  expDist() {
+    e.seed(time(0) * time(0));
+  }
   
 //   float getRaw() {
 //     return expd(e);
