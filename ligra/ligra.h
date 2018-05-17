@@ -504,11 +504,11 @@ int parallel_main(int argc, char* argv[]) {
     // }
   } else {
     if (symmetric) {
-      
       graph<symmetricVertex> G =
         readGraph<symmetricVertex>(iFile,compressed,symmetric,binary,mmap); //symmetric graph
       bigDelta<symmetricVertex> bdelta;
       print_mem("PageRank");
+      cerr << "graph origin size " << G.get_edge_number() << endl;
       for (auto i = 0; i < delta_num; i++) {
         delta_log<symmetricVertex> dlg = delta_log<symmetricVertex>(G, add_rate);
         delta<symmetricVertex> dlt = delta<symmetricVertex>(dlg, G);

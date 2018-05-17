@@ -327,7 +327,7 @@ int forward(graph<vertex> &ga, bigDelta<vertex> &bda, int step = 1) {
     return -1;
   }
   for (auto ver = version_start; ver < version_end; ver++) {
-    int count = ver == version_max ? 
+    int count = ver == version_max - 1 ? 
                   bda.vertexs.size() - bda.versions[ver] :
                   bda.versions[ver+1] - bda.versions[ver];
     
@@ -339,7 +339,7 @@ int forward(graph<vertex> &ga, bigDelta<vertex> &bda, int step = 1) {
         vtmp.outNeighbors.index_delete(bda.dstAndPos[j+1]);
       }
       // then do some add
-      if (ver == version_max && i == prefix + count - 1) {
+      if (ver == version_max - 1 && i == prefix + count - 1) {
         for(int j=bda.positions[2*i+1]; j<bda.dstAndPos.size(); j+= 1) {
           vtmp.outNeighbors.push_back(bda.dstAndPos[j]);
         }
@@ -417,8 +417,7 @@ int backward(graph<vertex> &ga, bigDelta<vertex> &bda, int step = 1) {
         vtmp.outNeighbors.pop_back();
       }
     }
-    
-    for(int j=bda.positions[2*i+1]-2; j>=bda.positions[2*i]; j-= 2) {
+    for(int j=bda.positions[2*i+1]-2; j >= (int) bda.positions[2*i]; j-= 2) {
       vtmp.outNeighbors.index_addtion(bda.dstAndPos[j], bda.dstAndPos[j+1]);
     }
   }}

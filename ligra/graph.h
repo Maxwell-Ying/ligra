@@ -102,6 +102,14 @@ graph(vertex* _V, long _n, long _m, Deletable* _D, uintE* _flags, int _version) 
 	  return V.data();
   }
 
+  int get_edge_number() {
+    int count = 0;
+    for (auto v : V) {
+      count += v.outNeighbors.size();
+    }
+    return count;
+  }
+
   int getversion() {
     return version;
   }
