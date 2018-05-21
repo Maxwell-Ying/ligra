@@ -110,6 +110,14 @@ graph(vertex* _V, long _n, long _m, Deletable* _D, uintE* _flags, int _version) 
     return count;
   }
 
+  int get_edge_capicity() {
+    int count = 0;
+    for (auto v : V) {
+      count += v.outNeighbors.get_cap();
+    }
+    return count;
+  }
+
   int getversion() {
     return version;
   }

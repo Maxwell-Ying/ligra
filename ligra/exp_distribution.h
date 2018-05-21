@@ -13,7 +13,7 @@ struct expDist {
 //   }
   int getRand(int maxrand) {
     int ret;
-    exponential_distribution<float> expd(1.0);
+    exponential_distribution<float> expd(10);
     do {
       ret = (int) lround(10 * expd(e));
     }
