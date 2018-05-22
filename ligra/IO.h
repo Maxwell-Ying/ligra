@@ -399,7 +399,8 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) {
   }
   else {
     free(offsets);
-    Uncompressed_Mem<vertex>* mem = new Uncompressed_Mem<vertex>(v,n,m,edges);
+    free(edges);
+    Uncompressed_Mem<vertex>* mem = new Uncompressed_Mem<vertex>(v,n,m,NULL);
     return graph<vertex>(v,n,m,mem);
   }
 }
