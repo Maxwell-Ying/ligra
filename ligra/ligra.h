@@ -507,8 +507,8 @@ int parallel_main(int argc, char* argv[]) {
       print_mem("PageRank");
       graph<symmetricVertex> G =
         readGraph<symmetricVertex>(iFile,compressed,symmetric,binary,mmap); //symmetric graph
-      cout << G.get_edge_capicity() << endl;
-      cout << G.get_edge_number() << endl;
+      // cout << G.get_edge_capicity() << endl;
+      // cout << G.get_edge_number() << endl;
       bigDelta<symmetricVertex> bdelta;
       print_mem("PageRank");
       cerr << "graph origin size " << G.get_edge_number() << endl;

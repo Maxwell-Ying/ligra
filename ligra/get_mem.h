@@ -65,5 +65,6 @@ void print_mem(const char * process_name) {
     // printf("%s\n", process_name);
     int pid = get_pid(process_name);
     // printf("pid:%d\n", pid);
+    malloc_trim(0);
     printf("current mem using : %u kb\n", get_proc_mem(pid));
 }
