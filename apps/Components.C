@@ -61,7 +61,7 @@ void Compute(graph<vertex>& GA, commandLine P) {
 
   while(!Frontier.isEmpty()){ //iterate until IDS converge
     vertexMap(Frontier,CC_Vertex_F(IDs,prevIDs));
-    vertexSubset output = edgeMap(GA, Frontier, CC_F(IDs,prevIDs));
+    vertexSubset output = edgeMap(&GA, Frontier, CC_F(IDs,prevIDs));
     Frontier.del();
     Frontier = output;
   }

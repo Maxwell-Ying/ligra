@@ -45,6 +45,8 @@
 #include "delta.h"
 #include "exp_distribution.h"
 #include "get_mem.h"
+#include <chrono>
+#include <time.h>
 using namespace std;
 
 //*****START FRAMEWORK*****
@@ -59,10 +61,10 @@ const flags remove_duplicates = 32;
 inline bool should_output(const flags& fl) { return !(fl & no_output); }
 
 template <class data, class vertex, class VS, class F>
-vertexSubsetData<data> edgeMapDense(graph<vertex> GA, VS& vertexSubset, F &f, const flags fl) {
+vertexSubsetData<data> edgeMapDense(graph<vertex> * GA, VS& vertexSubset, F &f, const flags fl) {
   using D = tuple<bool, data>;
-  long n = GA.n;
-  vertex *G = GA.getvertex();
+  long n = GA->n;
+  vertex *G = GA->getvertex();
   if (should_output(fl)) {
     D* next = newA(D, n);
     auto g = get_emdense_gen<data>(next);
@@ -85,10 +87,10 @@ vertexSubsetData<data> edgeMapDense(graph<vertex> GA, VS& vertexSubset, F &f, co
 }
 
 template <class data, class vertex, class VS, class F>
-vertexSubsetData<data> edgeMapDenseForward(graph<vertex> GA, VS& vertexSubset, F &f, const flags fl) {
+vertexSubsetData<data> edgeMapDenseForward(graph<vertex> * GA, VS& vertexSubset, F &f, const flags fl) {
   using D = tuple<bool, data>;
-  long n = GA.n;
-  vertex *G = GA.getvertex();
+  long n = GA->n;
+  vertex *G = GA->getvertex();
   if (should_output(fl)) {
     D* next = newA(D, n);
     auto g = get_emdense_forward_gen<data>(next);
@@ -134,6 +136,52 @@ vertexSubsetData<data> edgeMapSparse(graph<vertex>& GA, vertex* frontierVertices
       uintT v = indices.vtx(i);
       vertex vert = frontierVertices[i];
       vert.decodeOutNghSparse(v, 0, f, g);
+    }
+  }
+
+  if (should_output(fl)) {
+    S* nextIndices = newA(S, outEdgeCount);
+    if (fl & remove_duplicates) {
+      if (GA.flags == NULL) {
+        GA.flags = newA(uintE, n);
+        parallel_for(long i=0;i<n;i++) { GA.flags[i]=UINT_E_MAX; }
+      }
+      auto get_key = [&] (size_t i) -> uintE& { return std::get<0>(outEdges[i]); };
+      remDuplicates(get_key, GA.flags, outEdgeCount, n);
+    }
+    auto p = [] (tuple<uintE, data>& v) { return std::get<0>(v) != UINT_E_MAX; };
+    size_t nextM = pbbs::filterf(outEdges, nextIndices, outEdgeCount, p);
+    free(outEdges);
+    return vertexSubsetData<data>(n, nextM, nextIndices);
+  } else {
+    return vertexSubsetData<data>(n);
+  }
+}
+
+template <class data, class vertex, class VS, class F>
+vertexSubsetData<data> edgeMapSparse(graph<vertex>& GA, vertex** frontierVertices, VS& indices,
+        uintT* degrees, uintT m, F &f, const flags fl) {
+  using S = tuple<uintE, data>;
+  long n = indices.n;
+  S* outEdges;
+  long outEdgeCount = 0;
+
+  if (should_output(fl)) {
+    uintT* offsets = degrees;
+    outEdgeCount = sequence::plusScan(offsets, offsets, m);
+    outEdges = newA(S, outEdgeCount);
+    auto g = get_emsparse_gen<data>(outEdges);
+    parallel_for (size_t i = 0; i < m; i++) {
+      uintT v = indices.vtx(i), o = offsets[i];
+      vertex* vert = frontierVertices[i];
+      vert->decodeOutNghSparse(v, o, f, g);
+    }
+  } else {
+    auto g = get_emsparse_nooutput_gen<data>();
+    parallel_for (size_t i = 0; i < m; i++) {
+      uintT v = indices.vtx(i);
+      vertex* vert = frontierVertices[i];
+      vert->decodeOutNghSparse(v, 0, f, g);
     }
   }
 
@@ -232,6 +280,82 @@ vertexSubsetData<data> edgeMapSparse_no_filter(graph<vertex>& GA,
   }
   return vertexSubsetData<data>(n, outSize, out);
 }
+template <class data, class vertex, class VS, class F>
+vertexSubsetData<data> edgeMapSparse_no_filter(graph<vertex>& GA,
+    vertex** frontierVertices, VS& indices, uintT* offsets, uintT m, F& f,
+    const flags fl) {
+  using S = tuple<uintE, data>;
+  long n = indices.n;
+  long outEdgeCount = sequence::plusScan(offsets, offsets, m);
+  S* outEdges = newA(S, outEdgeCount);
+
+  auto g = get_emsparse_no_filter_gen<data>(outEdges);
+
+  // binary-search into scan to map workers->chunks
+  size_t b_size = 10000;
+  size_t n_blocks = nblocks(outEdgeCount, b_size);
+
+  uintE* cts = newA(uintE, n_blocks+1);
+  size_t* block_offs = newA(size_t, n_blocks+1);
+
+  auto offsets_m = make_in_imap<uintT>(m, [&] (size_t i) { return offsets[i]; });
+  auto lt = [] (const uintT& l, const uintT& r) { return l < r; };
+  parallel_for(size_t i=0; i<n_blocks; i++) {
+    size_t s_val = i*b_size;
+    block_offs[i] = pbbs::binary_search(offsets_m, s_val, lt);
+  }
+  block_offs[n_blocks] = m;
+  parallel_for (size_t i=0; i<n_blocks; i++) {
+    if ((i == n_blocks-1) || block_offs[i] != block_offs[i+1]) {
+      // start and end are offsets in [m]
+      size_t start = block_offs[i];
+      size_t end = block_offs[i+1];
+      uintT start_o = offsets[start];
+      uintT k = start_o;
+      for (size_t j=start; j<end; j++) {
+        uintE v = indices.vtx(j);
+        size_t num_in = frontierVertices[j]->decodeOutNghSparseSeq(v, k, f, g);
+        k += num_in;
+      }
+      cts[i] = (k - start_o);
+    } else {
+      cts[i] = 0;
+    }
+  }
+
+  long outSize = sequence::plusScan(cts, cts, n_blocks);
+  cts[n_blocks] = outSize;
+
+  S* out = newA(S, outSize);
+
+  parallel_for (size_t i=0; i<n_blocks; i++) {
+    if ((i == n_blocks-1) || block_offs[i] != block_offs[i+1]) {
+      size_t start = block_offs[i];
+      size_t start_o = offsets[start];
+      size_t out_off = cts[i];
+      size_t block_size = cts[i+1] - out_off;
+      for (size_t j=0; j<block_size; j++) {
+        out[out_off + j] = outEdges[start_o + j];
+      }
+    }
+  }
+  free(outEdges); free(cts); free(block_offs);
+
+  if (fl & remove_duplicates) {
+    if (GA.flags == NULL) {
+      GA.flags = newA(uintE, n);
+      parallel_for(size_t i=0;i<n;i++) { GA.flags[i]=UINT_E_MAX; }
+    }
+    auto get_key = [&] (size_t i) -> uintE& { return std::get<0>(out[i]); };
+    remDuplicates(get_key, GA.flags, outSize, n);
+    S* nextIndices = newA(S, outSize);
+    auto p = [] (tuple<uintE, data>& v) { return std::get<0>(v) != UINT_E_MAX; };
+    size_t nextM = pbbs::filterf(out, nextIndices, outSize, p);
+    free(out);
+    return vertexSubsetData<data>(n, nextM, nextIndices);
+  }
+  return vertexSubsetData<data>(n, outSize, out);
+}
 
 // Decides on sparse or dense base on number of nonzeros in the active vertices.
 template <class data, class vertex, class VS, class F>
@@ -247,13 +371,22 @@ vertexSubsetData<data> edgeMapData(graph<vertex>& GA, VS &vs, F f,
   if (vs.size() == 0) return vertexSubsetData<data>(numVertices);
   vs.toSparse();
   uintT* degrees = newA(uintT, m);
-  // vertex* frontierVertices = newA(vertex,m);
-  vertex * frontierVertices = new vertex[m];
+  /*
+  vertex* frontierVertices = newA(vertex,m);
+  // vertex * frontierVertices = new vertex[m];
   {parallel_for (size_t i=0; i < m; i++) {
     uintE v_id = vs.vtx(i);
     vertex v = G[v_id];
     degrees[i] = v.getOutDegree();
     frontierVertices[i] = v;
+  }}
+  */
+
+  vertex ** frontierVertices = newA(vertex*, m);
+  {parallel_for (size_t i=0; i<m; i++) {
+    uintE v_id = vs.vtx(i);
+    degrees[i] = G[v_id].getOutDegree();
+    frontierVertices[i] = &G[v_id];
   }}
 
   uintT outDegrees = sequence::plusReduce(degrees, m);
@@ -261,10 +394,11 @@ vertexSubsetData<data> edgeMapData(graph<vertex>& GA, VS &vs, F f,
   if (m + outDegrees > threshold) {
     vs.toDense();
     free(degrees);
+    // free(frontierVertices);
     delete[] frontierVertices;
     return (fl & dense_forward) ?
-      edgeMapDenseForward<data, vertex, VS, F>(GA, vs, f, fl) :
-      edgeMapDense<data, vertex, VS, F>(GA, vs, f, fl);
+      edgeMapDenseForward<data, vertex, VS, F>(&GA, vs, f, fl) :
+      edgeMapDense<data, vertex, VS, F>(&GA, vs, f, fl);
   } else {
     auto vs_out =
       (should_output(fl) && fl & sparse_no_filter) ? // only call snof when we output
@@ -277,9 +411,9 @@ vertexSubsetData<data> edgeMapData(graph<vertex>& GA, VS &vs, F f,
 
 // Regular edgeMap, where no extra data is stored per vertex.
 template <class vertex, class VS, class F>
-vertexSubset edgeMap(graph<vertex> GA, VS& vs, F f,
+vertexSubset edgeMap(graph<vertex> * GA, VS& vs, F f,
     intT threshold = -1, const flags& fl=0) {
-  return edgeMapData<pbbs::empty>(GA, vs, f, threshold, fl);
+  return edgeMapData<pbbs::empty>(*GA, vs, f, threshold, fl);
 }
 
 // Packs out the adjacency lists of all vertex in vs. A neighbor, ngh, is kept
@@ -460,6 +594,7 @@ vertexSubset vertexFilter2(vertexSubsetData<data> V, F filter) {
 
 
 
+
 //cond function that always returns true
 inline bool cond_true (intT d) { return 1; }
 
@@ -474,73 +609,81 @@ int parallel_main(int argc, char* argv[]) {
   bool binary = P.getOptionValue("-b");
   bool mmap = P.getOptionValue("-m");
   int delta_num = P.getOptionIntValue("-n", 9);
-  double add_rate = P.getOptionDoubleValue("-r", 0.6);
+  double add_rate = P.getOptionDoubleValue("-r", 0.9);
+  double delta_rate = P.getOptionDoubleValue("-f", 0.01);
   expDist expdist = expDist();
   //cout << "mmap = " << mmap << endl;
-  long rounds = P.getOptionLongValue("-rounds",3);
-  if (compressed) { // TODO::need repair compressed like  // if(compressed)
-    // if (symmetric) {
-    //   graph<compressedSymmetricVertex> G =
-    //     readCompressedGraph<compressedSymmetricVertex>(iFile,symmetric,mmap); //symmetric graph
-    //   Compute(G,P);
-    //   for(int r=0;r<rounds;r++) {
-    //     startTime();
-    //     Compute(G,P);
-    //     nextTime("Running time");
-    //   }
-    //   G.del();
-    // } else {
-    //   graph<compressedAsymmetricVertex> G =
-    //     readCompressedGraph<compressedAsymmetricVertex>(iFile,symmetric,mmap); //asymmetric graph
-    //   Compute(G,P);
-    //   if(G.transposed) G.transpose();
-    //   for(int r=0;r<rounds;r++) {
-    //     startTime();
-    //     Compute(G,P);
-    //     nextTime("Running time");
-    //     if(G.transposed) G.transpose();
-    //   }
-    //   G.del();
-    // }
-  } else {
-    if (symmetric) {
-      print_mem("PageRank");
-      graph<symmetricVertex> G =
-        readGraph<symmetricVertex>(iFile,compressed,symmetric,binary,mmap); //symmetric graph
-      // cout << G.get_edge_capicity() << endl;
-      // cout << G.get_edge_number() << endl;
-      bigDelta<symmetricVertex> bdelta;
-      print_mem("PageRank");
-      cerr << "graph origin size " << G.get_edge_number() << endl;
-      for (auto i = 0; i < delta_num; i++) {
-        delta_log<symmetricVertex> dlg = delta_log<symmetricVertex>(G, add_rate);
-        delta<symmetricVertex> dlt = delta<symmetricVertex>(dlg, G);
-        bdelta.append(dlt);
-        apply(G, dlt);
-      }
-      Compute(G,P);
-      for(int r=0;r<rounds;r++) {
-        startTime();
-        int randi = expdist.getRand(delta_num);
-        cerr << "jump to version " << randi << endl;
-        jump(G, bdelta, randi);
-        Compute(G,P);
-        nextTime("Running time");
-      }
-      G.del();
-    } else {
-      graph<asymmetricVertex> G =
-        readGraph<asymmetricVertex>(iFile,compressed,symmetric,binary,mmap); //asymmetric graph
-      Compute(G,P);
-      if(G.transposed) G.transpose();
-      for(int r=0;r<rounds;r++) {
-        startTime();
-        Compute(G,P);
-        nextTime("Running time");
-        if(G.transposed) G.transpose();
-      }
-      G.del();
-    }
+  long rounds = P.getOptionLongValue("-rounds",20);
+
+  int pid = get_pid("BFS");
+  print_mem(pid);
+
+  string basedir = "/public/home/tangwei/graphdata/livejournal/deltalog/";
+  startTime();
+  graph<symmetricVertex> G =
+    readGraph<symmetricVertex>(iFile,compressed,symmetric,binary,mmap); //symmetric graph
+  // nextTime("load graph ");
+  // Compute(G, P);
+  // nextTime("running time");
+  // G.del();
+  // return 0;
+
+  // cout << G.get_edge_capicity() << endl;
+  // cout << G.get_edge_number() << endl;
+  bigDelta<symmetricVertex> bdelta;
+  // print_mem(pid);
+  // cout << "graph origin size " << G.get_edge_number() << endl;
+  // startTime();
+  for (auto i = 0; i < delta_num; i++) {
+    // delta_log<symmetricVertex> dlg = delta_log<symmetricVertex>(G);
+    // cout << dlg.deltaLog.size() << endl;
+    string filename = basedir + to_string(i) + '-' + to_string(i+1);
+    delta_log<symmetricVertex> dlg = load_deltalog_from_file<symmetricVertex>(filename.c_str());
+    // print_mem(pid);
+    // write_deltalog_to_file<symmetricVertex>(dlg, filename.c_str());
+    delta<symmetricVertex> dlt = delta<symmetricVertex>(dlg, G);
+    // print_mem(pid);
+    // cout << bdelta.size() << " " << bdelta.capacity() << endl;
+    bdelta.append(dlt);
+    // cout << bdelta.size() << " " << bdelta.capacity() << endl;
+    // print_mem(pid);
+    apply(G, dlt);
+    // nextTime("get  a delta")
+    // print_mem(pid);
+    // startTime();
+    // cout << "dirty data" << G.accessAllEdges() << endl;
+    // nextTime("access all edge ");
   }
+  // abort();
+  for(int r = 0; r < delta_num; r++) {
+    if (r%5) {
+      continue;
+    }
+    jump(G, bdelta, delta_num);
+    // cout << r << endl;
+    startTime();
+    jump(G, bdelta, r);
+    nextTime("switch ");
+
+    Compute(G, P);
+
+    startTime();
+    Compute(G, P);
+    nextTime("Running time")
+  }
+
+  // Compute(G,P);
+  // startTime();
+  // for(int r=0;r<rounds;r++) {
+  //   int randi = expdist.getRand(delta_num);
+  //   cout << "jump to version " << randi << endl;
+  //   startTime();
+  //   jump(G, bdelta, randi);
+  //   nextTime("addtime");
+    // cout << "graph origin size " << G.get_edge_number() << endl;
+    // Compute(G,P);
+    // nextTime("Running time");
+  // }
+  G.del();
 }
 #endif

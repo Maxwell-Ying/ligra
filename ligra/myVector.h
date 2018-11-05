@@ -99,9 +99,9 @@ public:
       }
     else {
       if (newSize > _capacity) {
-        std::size_t newCapacity = (std::size_t) (_capacity * _cap_factor);
+        std::size_t newCapacity = (std::size_t) (_capacity * get_factor());
         while (newSize > newCapacity)
-          newCapacity = (std::size_t) (newCapacity*_cap_factor);
+          newCapacity = (std::size_t) (newCapacity*get_factor());
         reserve(newCapacity);
       }
       for (i = _size; i < newSize; ++i)
@@ -117,9 +117,9 @@ public:
       }
     else {
       if (newSize > _capacity) {
-        std::size_t newCapacity = (std::size_t) (_capacity * _cap_factor);
+        std::size_t newCapacity = (std::size_t) (_capacity * get_factor());
         while (newSize > newCapacity)
-          newCapacity = (std::size_t) (newCapacity*_cap_factor);
+          newCapacity = (std::size_t) (newCapacity*get_factor());
         reserve(newCapacity);
       }
       for (i = _size; i < newSize; ++i)
@@ -180,9 +180,9 @@ public:
     for (it = begin; it != end; ++it)
       ++newSize;
     if (newSize > _capacity) {
-      std::size_t newCapacity = (std::size_t) (_capacity * _cap_factor);
+      std::size_t newCapacity = (std::size_t) (_capacity * get_factor());
       while (newSize > newCapacity)
-        newCapacity = (std::size_t) (newCapacity*_cap_factor);
+        newCapacity = (std::size_t) (newCapacity*get_factor());
       reserve(newCapacity);
     }
     std::size_t i;
@@ -194,9 +194,9 @@ public:
   }
   void assign(const std::size_t & newSize, const T & val) {
     if (newSize > _capacity) {
-      std::size_t newCapacity = (std::size_t) (_capacity * _cap_factor);
+      std::size_t newCapacity = (std::size_t) (_capacity * get_factor());
       while (newSize > newCapacity)
-        newCapacity = (std::size_t) (newCapacity*_cap_factor);
+        newCapacity = (std::size_t) (newCapacity*get_factor());
       reserve(newCapacity);
     }
     std::size_t i;
@@ -207,8 +207,9 @@ public:
     _size = newSize;
   }
   void push_back(const T & val) {
-    if (_size >= _capacity)
-      reserve((std::size_t) (_capacity * _cap_factor));
+    if (_size >= _capacity){
+      reserve((std::size_t) (_capacity * get_factor()));
+    }
     _a.construct(_data + (_size++), val);
   }
 
@@ -222,7 +223,8 @@ public:
   //delete element according to index
   void index_delete(std::size_t index) {
     if (index >= _size){
-      std::cout << "size erro in delete" << std::endl;
+      std::cout << "size erro in delete " << index << " of " << _size << std::endl;
+      abort();
     }
     else {
       _data[index] = _data[_size - 1];
@@ -287,17 +289,23 @@ public:
     return 0;
   }
 
-  std::size_t get_cap() {
-    return _capacity;
+  double get_factor() {
+    if (_capacity > 1000) {
+      return 1.1;
+    } else if (_capacity > 500) {
+      return 1.2;
+    } else if (_capacity > 100) {
+      return 1.5;
+    } else {
+      return 2.0;
+    }
   }
 
 private:
   iterator _data;
   std::size_t _size, _capacity;
-  static double _cap_factor;
 };
 
 template <typename T, typename A>
-double myVector<T, A>::_cap_factor = 2.0;
 
 #endif

@@ -1,0 +1,1 @@
+LD_PRELOAD=/public/home/tangwei/ytw/lib64/libstdc++.so.6 /public/home/tangwei/project/ligra/bin/PageRank -f 0.1 -n 100 -s /public/home/tangwei/graphdata/csr.livejournal-links > /public/home/tangwei/project/ligra/result/vgraph-f0.1-n100.txt

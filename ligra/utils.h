@@ -440,7 +440,7 @@ namespace pbbs {
     size_t line_size = 64;
     size_t bytes = ((n * sizeof(E))/line_size + 1)*line_size;
 #ifndef __APPLE__
-    E* r = (E*) aligned_alloc(line_size, bytes);
+    E* r = (E*) malloc(bytes);
 #else
     E* r;
     if (posix_memalign((void**)&r, line_size, bytes) != 0) {

@@ -21,6 +21,10 @@ public:
   virtual void del() = 0;
 };
 
+struct Empty_Mem : public Deletable {
+  void del() {}
+};
+
 template <class vertex>
 struct Uncompressed_Mem : public Deletable {
 public:
@@ -124,6 +128,16 @@ graph(vertex* _V, long _n, long _m, Deletable* _D, uintE* _flags, int _version) 
 
   void setversion(int vers) {
     version = vers;
+  }
+
+  uintE accessAllEdges() {
+    uintE ret = 0;
+    for (auto i = 0; i < n; i++) {
+      for (auto j = 0; j < V[i].getInDegree(); j++) {
+        ret ^= V[i].getInNeighbor(j);
+      }
+    }
+    return ret;
   }
 };
 #endif

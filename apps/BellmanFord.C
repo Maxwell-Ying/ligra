@@ -21,7 +21,7 @@
 // LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#define WEIGHTED 1
+// #define WEIGHTED 1
 #include "ligra.h"
 
 struct BF_F {
@@ -29,7 +29,7 @@ struct BF_F {
   int* Visited;
   BF_F(intE* _ShortestPathLen, int* _Visited) : 
     ShortestPathLen(_ShortestPathLen), Visited(_Visited) {}
-  inline bool update (uintE s, uintE d, intE edgeLen) { //Update ShortestPathLen if found a shorter path
+  inline bool update (uintE s, uintE d, intE edgeLen = 1) { //Update ShortestPathLen if found a shorter path
     intE newDist = ShortestPathLen[s] + edgeLen;
     if(ShortestPathLen[d] > newDist) {
       ShortestPathLen[d] = newDist;
@@ -37,7 +37,7 @@ struct BF_F {
     }
     return 0;
   }
-  inline bool updateAtomic (uintE s, uintE d, intE edgeLen){ //atomic Update
+  inline bool updateAtomic (uintE s, uintE d, intE edgeLen = 1){ //atomic Update
     intE newDist = ShortestPathLen[s] + edgeLen;
     return (writeMin(&ShortestPathLen[d],newDist) &&
 	    CAS(&Visited[d],0,1));
@@ -57,7 +57,7 @@ struct BF_Vertex_F {
 
 template <class vertex>
 void Compute(graph<vertex>& GA, commandLine P) {
-  long start = P.getOptionLongValue("-r",0);
+  long start = P.getOptionLongValue("-r",13);
   long n = GA.n;
   //initialize ShortestPathLen to "infinity"
   intE* ShortestPathLen = newA(intE,n);
@@ -76,7 +76,7 @@ void Compute(graph<vertex>& GA, commandLine P) {
       {parallel_for(long i=0;i<n;i++) ShortestPathLen[i] = -(INT_E_MAX/2);}
       break;
     }
-    vertexSubset output = edgeMap(GA, Frontier, BF_F(ShortestPathLen,Visited), GA.m/20, dense_forward);
+    vertexSubset output = edgeMap(&GA, Frontier, BF_F(ShortestPathLen,Visited), GA.m/20, dense_forward);
     vertexMap(output,BF_Vertex_F(Visited));
     Frontier.del();
     Frontier = output;

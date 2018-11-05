@@ -38,6 +38,7 @@
 #include "utils.h"
 #include "graph.h"
 #include "myVector.h"
+#include "get_mem.h"
 #include "delta.h"
 using namespace std;
 
@@ -246,6 +247,56 @@ deltaVector<vertex> readDeltasFromFiles(string & dir, int count) {
 }
 
 template <class vertex>
+graph<vertex> readGraphFromFile(char *fname) {
+  words W;
+  _seq<char> S = readStringFromFile(fname);
+  W = stringToWords(S.A, S.n);
+  if (W.Strings[0] != (string) "AdjacencyGraph") {
+    cout << "Bad input file : bad head" << endl;
+    cout << W.Strings[0] << endl;
+    exit(0);
+  }
+
+  long len = W.m -1;
+  long n = atol(W.Strings[1]);
+  long m = atol(W.Strings[2]);
+
+  if (len != n + m + 2) {
+    cout << "Bad input file : bad size in head" << endl;
+    cout << "len: " << len << " n: " << n << " m: " << m << endl;
+    cout << W.Strings[0] << W.Strings[len] << endl;
+    exit(0);
+  }
+
+  uintT* offsets = newA(uintT,n);
+  uintE* edges = newA(uintE,m);
+  {parallel_for(long i=0; i < n; i++) offsets[i] = atol(W.Strings[i + 3]);}
+  {parallel_for(long i=0; i<m; i++) {
+    edges[i] = atol(W.Strings[i+n+3]);
+  }}
+
+  W.del();
+
+  myVector<vertex> v ;
+  v.resize(n);
+
+  {parallel_for(uintT i = 0; i < n; i++) {
+    uintT o = offsets[i];
+    uintT l = (i == n - 1) ? m : offsets[i + 1];
+    v[i].outNeighbors.reserve(l-o);
+    for (uintT j = o; j < l; j++)
+      v[i].outNeighbors.push_back(edges[j]);
+  }}//Put the outneighbors of each edge into the corresponding vector
+
+
+  free(offsets);
+  free(edges);
+  // Uncompressed_Mem<vertex>* mem = new Uncompressed_Mem<vertex>(v,n,m,NULL);
+  Empty_Mem * mem = new Empty_Mem();
+  return graph<vertex>(v,n,m,mem);
+}
+
+template <class vertex>
 graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) {
   words W;
   if (mmap) {
@@ -263,15 +314,16 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) {
     W = stringToWords(S.A, S.n);
   } else {
     _seq<char> S = readStringFromFile(fname);
-    W = stringToWords(S.A, S.n);
+    W = stringToWords(S.A, S.n); // you dont free S.A here. I did and I failed
   }
 #ifndef WEIGHTED
   if (W.Strings[0] != (string) "AdjacencyGraph") {
 #else
   if (W.Strings[0] != (string) "WeightedAdjacencyGraph") {
 #endif
-    cout << "Bad input file" << endl;
-    abort();
+    cout << "Bad input file : bad head" << endl;
+    cout << W.Strings[0] << endl;
+    exit(0);
   }
 
   long len = W.m -1;
@@ -282,8 +334,10 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) {
 #else
   if (len != n + 2*m + 2) {
 #endif
-    cout << "Bad input file" << endl;
-    abort();
+    cout << "Bad input file : bad size in head" << endl;
+    cout << "len: " << len << " n: " << n << " m: " << m << endl;
+    cout << W.Strings[0] << W.Strings[len] << endl;
+    exit(0);
   }
 
   uintT* offsets = newA(uintT,n);
@@ -304,22 +358,19 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) {
     }}
   W.del(); // to deal with performance bug in malloc
 
-
   myVector<vertex> v ;
   v.resize(n);
 //
 #ifndef WEIGHTED
   {parallel_for(uintT i = 0; i < n; i++) {
-	  uintT o = offsets[i];
-	  uintT l = (i == n - 1) ? m : offsets[i + 1];
+    uintT o = offsets[i];
+    uintT l = (i == n - 1) ? m : offsets[i + 1];
     v[i].outNeighbors.reserve(l-o);
-	  for (uintT j = o; j < l; j++)
-		  v[i].outNeighbors.push_back(edges[j]);
+    for (uintT j = o; j < l; j++)
+      v[i].outNeighbors.push_back(edges[j]);
   }}//Put the outneighbors of each edge into the corresponding vector
 #else
 #endif
-	
-
 
   if(!isSymmetric) {
     uintT* tOffsets = newA(uintT,n);
@@ -559,7 +610,8 @@ graph<vertex> readGraphFromBinary(char* iFile, bool isSymmetric) {
 template <class vertex>
 graph<vertex> readGraph(char* iFile, bool compressed, bool symmetric, bool binary, bool mmap) {
   if(binary) return readGraphFromBinary<vertex>(iFile,symmetric);
-  else return readGraphFromFile<vertex>(iFile,symmetric,mmap);
+  // else return readGraphFromFile<vertex>(iFile,symmetric,mmap);
+  else return readGraphFromFile<vertex>(iFile);
 }
 
 template <class vertex>

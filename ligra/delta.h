@@ -1,12 +1,14 @@
 #ifndef DELTA_H
 #define DELTA_H
 
+#include <random>
 #include "graph.h"
 #include "myVector.h"
 #include "vertex.h"
 #include <map>
 #include "quickSort.h"
 #include <cstdlib>
+#include <time.h>
 typedef pair<uintE, pair<uintE, intE>> intTriple;
 
 struct logLT {
@@ -21,103 +23,206 @@ struct logLT {
   }
 };
 
+bool randomFloatBiggerThan(double level) {
+  random_device rd;
+  mt19937 gen(rd());
+  uniform_real_distribution<> ran(0, 1.0);
+  return ran(gen) >= level;
+}
+
+uintT get_next(myVector<uintT> &arr, uintT target, uintT near) {
+  uintT m = arr.size();
+  if (near == 0) {
+    near = 1;
+  }
+  while (arr[near] == target) {
+    if (near == m-1) {
+      return near;
+    }
+    near ++;
+  }
+  return near-1;
+}
+
+uintT bin_search(myVector<uintT> &arr, uintT target) {
+  uintT start = 0;
+  uintT end = arr.size() - 1;
+  while(end - start > 1) {
+    if (arr[end] == target) {
+      return get_next(arr, target, end);
+    }
+    if (arr[start] == target) {
+      return get_next(arr, target, start);
+    }
+    uintT middle = (end+start)/2;
+    if (arr[middle] > target) {
+      end = middle;
+    } else {
+      start = middle;
+    }
+  }
+  return start;
+}
+
 template <class vertex>
 struct delta_log{
   myVector<intTriple> deltaLog;
-  double add_rate;
-  double delta_rate;
+  uintT ver;
+  double add_rate = 0.9;
+  double delta_rate = 0.01;
+  static uintT edgenumber;
+  static vector<uintT> arr;
   delta_log(myVector<intTriple> _deltalog):deltaLog(_deltalog){}
-  
-  delta_log(graph<vertex> & graph, double _add_rate, double _delta_rate = 0.001) {
+
+  delta_log() {}
+
+  delta_log(graph<vertex> &graph) {
+    ver = graph.getversion();
+    for(uintT i = 0; i < graph.n; i++)
+    {
+      myVector<pair<uintE, intE>> add_and_del = get_delta(graph.V[i], graph.n);
+      if (add_and_del.size() > 1 && add_and_del.size()>graph.V[i].getOutDegree()*delta_rate*2){
+        cout << add_and_del.size() << " " << graph.V[i].getOutDegree() << endl;
+      }
+      for (auto deledge : add_and_del) {
+        deltaLog.push_back(make_pair(i, make_pair(deledge.first, deledge.second)));
+      }
+
+    }
+    quickSort(deltaLog.data(), deltaLog.size(), logLT());
+    cout << deltaLog.size() << endl;
+  }
+
+  myVector<pair<uintE, intE>> get_delta(vertex v, uintE max) {
+    uintT s = v.outNeighbors.size();
+    if (s == 0) {
+      if (randomFloatBiggerThan(1-100.0/max)) {
+        return myVector<pair<uintE, intE>>(1, make_pair(rand()%max, -1));
+      }
+      return myVector<pair<uintE, intE>>();
+    }
+    myVector<pair<uintE, intE>> ret;
+    double remain = s * delta_rate;
+    intE pos = 0;
+    while (remain > 0) {
+      if (remain < 1 && randomFloatBiggerThan(remain)) break;
+      if (randomFloatBiggerThan(1-add_rate)) {
+        uintE e = rand()%max;
+        ret.push_back(make_pair(e, -1));
+      } else {
+        ret.push_back(make_pair(v.outNeighbors[pos], pos));
+        pos += 1;
+      }
+      remain -= 1;
+      // not consider duplicate
+    }
+    return ret;
+  }
+
+  delta_log(graph<vertex> & graph, double _add_rate, double _delta_rate) {
     delta_rate = _delta_rate;
     add_rate = _add_rate;
-    uintE delta_number = graph.m * delta_rate;
-    uintE add_number = delta_number * add_rate;
-    uintE delete_number = delta_number - add_number;
-    uintE n = graph.n;
-    uintE add_count = 0;
-    uintE del_count = 0;
-    std::map<uintE, myVector<uintE>> log_map;//用来存已在deltalog的边，去重
-    while(add_count < add_number){  //默认加边先满
-      if(del_count >= delete_number) {
-        break;
-      }
-      uintE vertex_start = rand() % n;
-      uintE vertex_end = rand() % n;
-      std::map<uintE, myVector<uintE>>::iterator key = log_map.find(vertex_start);
-      if(key != log_map.end() && key->second.find(vertex_end) != -1)
-        continue;
-      else if(key == log_map.end()){
-        myVector<uintE> mv;
-        mv.push_back(vertex_end);
-        log_map[vertex_start] = mv;
-        intE pos = graph.V[vertex_start].find(vertex_end);
-        intTriple _log;
-        _log.first = vertex_start;
-        _log.second.first = vertex_end;
-        _log.second.second = pos;
-        deltaLog.push_back(_log);
-        if(pos == -1)
-          add_count++;     
-        else
-          del_count++; 
-      }
-      else if(key != log_map.end() && key->second.find(vertex_end) == -1){
-        key->second.push_back(vertex_end);
-        intE pos = graph.V[vertex_start].find(vertex_end);
-        intTriple _log;
-        _log.first = vertex_start;
-        _log.second.first = vertex_end;
-        _log.second.second = pos;
-        deltaLog.push_back(_log);
-        if(pos == -1)
-          add_count++;     
-        else
-          del_count++;
-      }
+    // uintT edgesum = graph.get_edge_number();
+    uintT edgesum = 54684899;
+    uintT number = (uintT) (edgesum * delta_rate);
+    myVector<uintT> arr(graph.n+1, 0);
+    for(auto i = 1; i <= graph.n; i++)
+    {
+      arr[i] = graph.V[i-1].outNeighbors.size() + arr[i-1];
     }
-    //在图中找减边存到deltalog中
-    while(del_count < delete_number){
-      uintE vertex_start = rand() % n;
-      for(int i = 0; i < graph.V[vertex_start].getOutDegree(); i++){
-        uintE vertex_end = graph.V[vertex_start].outNeighbors[i];
-        std::map<uintE, myVector<uintE>>::iterator key = log_map.find(vertex_start);
-        if(key != log_map.end() && key->second.find(vertex_end) != -1)
-          continue;
-        else if(key == log_map.end()){
-          myVector<uintE> mv;
-          mv.push_back(vertex_end);
-          log_map[vertex_start] = mv;
-          intTriple _log;
-          _log.first = vertex_start;
-          _log.second.first = vertex_end;
-          _log.second.second = i;
-          deltaLog.push_back(_log);
-          del_count++;
-        }
-        else if(key != log_map.end() && key->second.find(vertex_end) == -1){
-          key->second .push_back(vertex_end);
-          intTriple _log;
-          _log.first = vertex_start;
-          _log.second.first = vertex_end;
-          _log.second.second = i;
-          deltaLog.push_back(_log);
-          del_count++;
-        }
-        if (del_count >= delete_number) {
-          break;
-        }
+    cout << arr[100000] << " " << arr[graph.n] << endl;
+    uintT i = 0;
+    map<uintE, uintT> delcount;
+    
+    while(i < number){
+      uintE start = bin_search(arr, rand()%graph.n);
+      uintE end = rand() % graph.n;
+
+      if (randomFloatBiggerThan(add_rate)) {
+        delcount[start] = delcount[start] + 1;
+      } else {
+        deltaLog.push_back(make_pair(start, make_pair(end, -1)));
       }
+      i++;
     }
     
-    quickSort(deltaLog.data(), add_number + delete_number, logLT());
-    
+    for(auto const & de : delcount)
+    {
+      uintT c = de.second;
+      if (de.second > graph.V[de.first].outNeighbors.size()) {
+        if (graph.V[de.first].outNeighbors.size() >= 1) {
+          c = 1;
+        } else {
+          c = 0;
+        }
+      }
+      for (auto j=0; j<c; j++) {
+        uintE x = graph.V[de.first].outNeighbors[j];
+        deltaLog.push_back(make_pair(de.first, make_pair(x, j)));
+      }
+    }
+    quickSort(deltaLog.data(), deltaLog.size(), logLT());
   }
+
   int size() {
     return deltaLog.size();
   }
 };
 
+/*  file structure
+ *  1: DELTA_LOG_FILE
+ *  2: (base version)
+ *  3: (size of deltalog)
+ *  4: (first int triple of deltalog)
+ *  ......
+ *  end of file
+ * */
+template <class vertex>
+int write_deltalog_to_file(delta_log<vertex> d, const char * filename) {
+  ofstream outfile;
+  outfile.open(filename);
+  if (!outfile.is_open()) {
+    cout << "fail to open file " << filename<< endl;
+    abort();
+  }
+  outfile << "DELTA_LOG_FILE" << endl;
+  outfile << d.ver << endl;
+  outfile << d.deltaLog.size() << endl;
+  for (auto const dl : d.deltaLog) {
+    outfile << dl.first << " " << dl.second.first << " " << dl.second.second << endl;
+  }
+  outfile.close();
+  return 0;
+}
+
+template <class vertex>
+delta_log<vertex> load_deltalog_from_file(const char * filename) {
+  ifstream infile;
+  infile.open(filename);
+  if (!infile.is_open()) {
+    cout << "error in open file " << filename << endl;
+    abort();
+  }
+  string code;
+  infile >> code;
+  if (code.compare("DELTA_LOG_FILE")) {
+    cout << "bad delta file" << filename << " with code" << code << endl;
+    infile.close();
+    abort();
+  }
+  delta_log<vertex> d;
+  infile >> d.ver;
+  uintT length;
+  uintT start, end;
+  intT pos;
+  infile >> length;
+  for (auto i=0; i < length; i++) {
+    infile >> start >> end >> pos;
+    d.deltaLog.push_back(make_pair(start, make_pair(end, pos)));
+  }
+  infile.close();
+  return d;
+}
 
 template <class vertex>
 struct delta {
@@ -227,6 +332,12 @@ struct bigDelta {
   int get_max_version() {
     return versions.size();
   }
+  uintT size() {
+    return dstAndPos.size();
+  }
+  uintT capacity() {
+    return dstAndPos.capacity();
+  }
 };
 
 template <class vertex>
@@ -243,6 +354,7 @@ int apply(graph<vertex> & graph, delta<vertex> & da) {
     // get target vertex
     vertex& vtmp = graph.getvertex()[da.vertexs[i]];
     // do the delete first
+    // cout << da.vertexs[i] << endl;
     for(int j=da.positions[2*i]; j<da.positions[2*i+1]; j+= 2) {
       vtmp.outNeighbors.index_delete(da.dstAndPos[j+1]);
     }
@@ -406,21 +518,21 @@ int backward(graph<vertex> &ga, bigDelta<vertex> &bda, int step = 1) {
     
     int prefix = bda.versions[ver];
 
-  {parallel_for(int i=prefix; i<count+prefix; i++) {
-    vertex& vtmp = ga.getvertex()[bda.vertexs[i]];
-    if (ver == version_max - 1 && i == prefix+count-1) {
-      for(int j=bda.positions[2*i+1]; j<bda.dstAndPos.size(); j+= 1) {
-        vtmp.outNeighbors.pop_back();
+    {parallel_for(int i=prefix; i<count+prefix; i++) {
+      vertex& vtmp = ga.getvertex()[bda.vertexs[i]];
+      if (ver == version_max - 1 && i == prefix+count-1) {
+        for(int j=bda.positions[2*i+1]; j<bda.dstAndPos.size(); j+= 1) {
+          vtmp.outNeighbors.pop_back();
+        }
+      }else {
+        for(int j=bda.positions[2*i+1]; j<bda.positions[2*i+2]; j+= 1) {
+          vtmp.outNeighbors.pop_back();
+        }
       }
-    }else {
-      for(int j=bda.positions[2*i+1]; j<bda.positions[2*i+2]; j+= 1) {
-        vtmp.outNeighbors.pop_back();
+      for(int j=bda.positions[2*i+1]-2; j >= (int) bda.positions[2*i]; j-= 2) {
+        vtmp.outNeighbors.index_addtion(bda.dstAndPos[j], bda.dstAndPos[j+1]);
       }
-    }
-    for(int j=bda.positions[2*i+1]-2; j >= (int) bda.positions[2*i]; j-= 2) {
-      vtmp.outNeighbors.index_addtion(bda.dstAndPos[j], bda.dstAndPos[j+1]);
-    }
-  }}
+    }}
   }
   ga.version = version_end;
   return 0;

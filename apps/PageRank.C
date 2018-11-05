@@ -68,7 +68,7 @@ struct PR_Vertex_Reset {
 
 template <class vertex>
 void Compute(graph<vertex>& GA, commandLine P) {
-  long maxIters = P.getOptionLongValue("-maxiters",2);
+  long maxIters = P.getOptionLongValue("-maxiters",10);
   const intE n = GA.n;
   const double damping = 0.85, epsilon = 0.0000001;
   
@@ -83,7 +83,7 @@ void Compute(graph<vertex>& GA, commandLine P) {
   vertexSubset Frontier(n,n,frontier);
   long iter = 0;
   while(iter++ < maxIters) {
-    edgeMap(GA,Frontier,PR_F<vertex>(p_curr,p_next,GA.getvertex()),0, no_output);
+    edgeMap(&GA,Frontier,PR_F<vertex>(p_curr,p_next,GA.getvertex()),0, no_output);
     vertexMap(Frontier,PR_Vertex_F(p_curr,p_next,damping,n));
     //compute L1-norm between p_curr and p_next
     {parallel_for(long i=0;i<n;i++) {

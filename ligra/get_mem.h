@@ -1,3 +1,5 @@
+#ifndef __MEM_H
+#define __MEM_H
 #include <stdio.h>  
 #include <unistd.h>  
 #include <sys/time.h>  
@@ -5,7 +7,7 @@
 #include <stdlib.h>  
 #include <error.h>
   
-#define VMRSS_LINE 22
+#define VMRSS_LINE 16
 
 //获取进程占用内存  
 unsigned int get_proc_mem(unsigned int pid){  
@@ -25,11 +27,11 @@ unsigned int get_proc_mem(unsigned int pid){
     for (int i=0; i<VMRSS_LINE-1;i++){  
         fgets(line_buff,sizeof(line_buff),fd);  
     }  
-      
+
     fgets(line_buff,sizeof(line_buff),fd);
     sscanf(line_buff,"%s %d",name, &vmrss);
     fclose(fd);  
-  
+    // printf("%s\n", line_buff);  
     return vmrss;  
 }  
  
@@ -44,10 +46,10 @@ int get_pid(const char* process_name)
         sprintf(cmd, "pgrep %s -u %s", process_name, user);   
     }  
     
-    FILE *pstr = popen("pgrep PageRank -u ytw","r");
+    FILE *pstr = popen("pgrep BFS -u tangwei","r");
     
     if(pstr == nullptr){  
-        // printf("cmd : %d\n", errno);
+        printf("cmd error code : %d\n", errno);
         return 0;
     }
 
@@ -68,3 +70,19 @@ void print_mem(const char * process_name) {
     malloc_trim(0);
     printf("current mem using : %u kb\n", get_proc_mem(pid));
 }
+
+void print_mem_without_trim(const char * process_name) {
+    int pid = get_pid(process_name);
+    printf("current mem using : %u kb\n", get_proc_mem(pid));
+}
+
+void print_mem(const int pid) {
+    malloc_trim(0);
+    printf("current mem using : %u kb\n", get_proc_mem(pid));
+}
+
+void print_mem_without_trim(const int pid) {
+    printf("current mem using : %u kb\n", get_proc_mem(pid));
+}
+
+#endif

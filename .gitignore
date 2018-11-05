@@ -6,3 +6,6 @@ apps/decoder.C
 apps/encoder.C
 apps/*~
 *~
+run.sh
+result/*
+
