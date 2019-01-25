@@ -29,8 +29,8 @@
 #include <cstring>
 #include <string>
 #include <algorithm>
-#include "myVector.h"
 #include "parallel.h"
+#include "myVector.h"
 #include "gettime.h"
 #include "utils.h"
 #include "vertex.h"
@@ -615,14 +615,16 @@ int parallel_main(int argc, char* argv[]) {
   //cout << "mmap = " << mmap << endl;
   long rounds = P.getOptionLongValue("-rounds",20);
 
-  int pid = get_pid("BFS");
+  int pid = get_pid("BellmanFord");
   print_mem(pid);
 
-  string basedir = "/public/home/tangwei/graphdata/livejournal/deltalog/";
+  // string basedir = "/public/home/tangwei/graphdata/livejournal/delta/";
+  string basedir = "/public/home/tangwei/graphdata/link-dynamic-dewiki/cleaned/";
   startTime();
   graph<symmetricVertex> G =
     readGraph<symmetricVertex>(iFile,compressed,symmetric,binary,mmap); //symmetric graph
-  // nextTime("load graph ");
+  nextTime("load graph ");
+  cout << "dirty data" << G.accessAllEdges() << endl;
   // Compute(G, P);
   // nextTime("running time");
   // G.del();
@@ -635,24 +637,33 @@ int parallel_main(int argc, char* argv[]) {
   // cout << "graph origin size " << G.get_edge_number() << endl;
   // startTime();
   for (auto i = 0; i < delta_num; i++) {
+    cout << "delta : " << i << "-" << i+1 << endl;
     // delta_log<symmetricVertex> dlg = delta_log<symmetricVertex>(G);
     // cout << dlg.deltaLog.size() << endl;
     string filename = basedir + to_string(i) + '-' + to_string(i+1);
-    delta_log<symmetricVertex> dlg = load_deltalog_from_file<symmetricVertex>(filename.c_str());
+    
+    delta_log<symmetricVertex> dlg = load_deltalog_from_file<symmetricVertex>(G, filename.c_str());
     // print_mem(pid);
     // write_deltalog_to_file<symmetricVertex>(dlg, filename.c_str());
     delta<symmetricVertex> dlt = delta<symmetricVertex>(dlg, G);
+    
+    
     // print_mem(pid);
     // cout << bdelta.size() << " " << bdelta.capacity() << endl;
     bdelta.append(dlt);
     // cout << bdelta.size() << " " << bdelta.capacity() << endl;
     // print_mem(pid);
-    apply(G, dlt);
+    // apply(G, dlt);
+    forward(G, bdelta);
+    
     // nextTime("get  a delta")
-    // print_mem(pid);
-    // startTime();
-    // cout << "dirty data" << G.accessAllEdges() << endl;
-    // nextTime("access all edge ");
+    print_mem(pid);
+    // cout << "edgenum " << G.get_edge_number() << endl;
+    startTime();
+    cout << "dirty data" << G.accessAllEdges() << endl;
+    nextTime("access all edge ");
+    
+    // abort();
   }
   // abort();
   for(int r = 0; r < delta_num; r++) {
@@ -674,16 +685,19 @@ int parallel_main(int argc, char* argv[]) {
 
   // Compute(G,P);
   // startTime();
-  // for(int r=0;r<rounds;r++) {
-  //   int randi = expdist.getRand(delta_num);
-  //   cout << "jump to version " << randi << endl;
-  //   startTime();
-  //   jump(G, bdelta, randi);
-  //   nextTime("addtime");
+  for(int r=0;r<rounds;r++) {
+    int randi = expdist.getRand(delta_num);
+    cout << "jump to version " << randi << endl;
+    startTime();
+    jump(G, bdelta, randi);
+    nextTime("addtime");
     // cout << "graph origin size " << G.get_edge_number() << endl;
-    // Compute(G,P);
-    // nextTime("Running time");
-  // }
+    Compute(G,P);
+    startTime();
+    Compute(G,P);
+    nextTime("Running time");
+  }
   G.del();
 }
+
 #endif

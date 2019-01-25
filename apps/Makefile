@@ -41,9 +41,10 @@ PCC = g++
 PCFLAGS = -std=c++14 -O2 $(INTT) $(INTE) $(CODE) $(PD) $(MEM)
 endif
 
-COMMON= get_mem.h exp_distribution.h myVector.h delta.h ligra.h graph.h compressedVertex.h vertex.h utils.h IO.h parallel.h gettime.h index_map.h maybe.h sequence.h edgeMap_utils.h binary_search.h quickSort.h blockRadixSort.h transpose.h parseCommandLine.h byte.h byteRLE.h nibble.h byte-pd.h byteRLE-pd.h nibble-pd.h vertexSubset.h 
+COMMON= myutil.h get_mem.h exp_distribution.h myVector.h delta.h ligra.h graph.h compressedVertex.h vertex.h utils.h IO.h parallel.h gettime.h index_map.h maybe.h sequence.h edgeMap_utils.h binary_search.h quickSort.h blockRadixSort.h transpose.h parseCommandLine.h byte.h byteRLE.h nibble.h byte-pd.h byteRLE-pd.h nibble-pd.h vertexSubset.h 
 
-ALL=  BFS Components BellmanFord PageRank
+# ALL=  BFS Components BellmanFord PageRank
+ALL= BellmanFord
 
 all: $(ALL)
 

@@ -77,6 +77,7 @@ void Compute(graph<vertex>& GA, commandLine P) {
       break;
     }
     vertexSubset output = edgeMap(&GA, Frontier, BF_F(ShortestPathLen,Visited), GA.m/20, dense_forward);
+    cout << output.size() << endl;
     vertexMap(output,BF_Vertex_F(Visited));
     Frontier.del();
     Frontier = output;

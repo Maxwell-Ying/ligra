@@ -232,18 +232,6 @@ delta<vertex> readDeltaFromLog(string fname, graph<vertex> & ga) {
     logs.push_back(make_pair(srcv, make_pair(dstv, wgh)));
   }
   return delta<vertex>(ga, logs);
-} 
-
-template <class vertex>
-deltaVector<vertex> readDeltasFromFiles(string & dir, int count) {
-  deltaVector<vertex> deltas;
-  for(auto i = 0; i < count; i++) {
-    string deltafilename = dir + "delta" + to_string(i);
-    char * fname = strcpy((char*)malloc(deltafilename.length()+1), deltafilename.c_str());
-    deltas.allDelta.push_back(readDeltaFromFile<vertex>(fname));
-    free(fname);
-  }
-  return deltas;
 }
 
 template <class vertex>

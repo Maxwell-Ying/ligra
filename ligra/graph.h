@@ -126,17 +126,34 @@ graph(vertex* _V, long _n, long _m, Deletable* _D, uintE* _flags, int _version) 
     return version;
   }
 
+  void update_m(void) {
+    int ret = 0;
+    for (auto v : V) {
+      ret += v.outNeighbors.size();
+    }
+    m = ret;
+  }
+
   void setversion(int vers) {
     version = vers;
   }
 
   uintE accessAllEdges() {
     uintE ret = 0;
+    // int count = 0;
+    // auto start = std::chrono::high_resolution_clock::now();
     for (auto i = 0; i < n; i++) {
       for (auto j = 0; j < V[i].getInDegree(); j++) {
         ret ^= V[i].getInNeighbor(j);
       }
+      // count += V[i].getInDegree();
+      // if (!(i % 1000000) && i) {
+        // auto finish = std::chrono::high_resolution_clock::now();
+        // std::cout << std::chrono::duration_cast<std::chrono::nanoseconds>(finish-start).count() << "ns\n";
+        // cout << "count : " << count << endl;
+      // }
     }
+    // abort();
     return ret;
   }
 };

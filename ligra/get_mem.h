@@ -46,7 +46,7 @@ int get_pid(const char* process_name)
         sprintf(cmd, "pgrep %s -u %s", process_name, user);   
     }  
     
-    FILE *pstr = popen("pgrep BFS -u tangwei","r");
+    FILE *pstr = popen("pgrep BellmanFord -u tangwei","r");
     
     if(pstr == nullptr){  
         printf("cmd error code : %d\n", errno);

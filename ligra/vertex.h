@@ -244,7 +244,7 @@ symmetricVertex()
   uintT getOutDegree() const { return outNeighbors.size(); }
   void setInDegree(uintT _d) { return;  }
   void setOutDegree(uintT _d) { return;  }
-  uintT	find(const uintE &val) { return outNeighbors.find(val); }
+  int	find(const uintE &val) { return outNeighbors.find(val); }
   void flipEdges() {}
 
   symmetricVertex& operator=(const symmetricVertex & other) {
@@ -252,7 +252,6 @@ symmetricVertex()
     if (&other != this) {
       outNeighbors = other.outNeighbors;
     }
-    
     return *this;
   }
 

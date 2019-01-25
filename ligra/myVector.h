@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <iostream>
+#include "myutil.h"
 
 
 template< typename T, typename Alloc = std::allocator<T> >
@@ -213,8 +214,28 @@ public:
     _a.construct(_data + (_size++), val);
   }
 
-  void pop_back() {
+  void push_back(iterator begin, iterator end) {
+    std::size_t newSize = 0;
+    iterator it;
+    
+    for (it=begin; it != end; it ++) {
+      ++ newSize;
+    }
+    // std::cout << _size << " " << newSize << "\n";
+    if (newSize + _size > _capacity) {
+      reserve(newSize + _size);
+    }
+    std::size_t i;
+    for (it = begin, i=0; i < newSize; i++, it++) {
+      _a.construct(_data+_size+i, *it);
+    }
+    _size = _size + newSize;
+  }
+
+  T pop_back() {
+    T back = _data[_size -1];
     _a.destroy(_data + (--_size));
+    return back;
   }//
 
   void clear() {
@@ -269,12 +290,16 @@ public:
     return -1;
   }
 
-  void printdata() {
+  void printdata(int limit) {
     std::cout << "vector contains : ";
-    for(auto i = 0; i < _size; i++) {
+    for(auto i = 0; i < limit && i < _size; i++) {
       std::cout << _data[i] << " ";
     }
     std::cout << std::endl;
+  }
+
+  void printdata(){
+    printdata(_size);
   }
 
   int check_increase() {
@@ -306,6 +331,6 @@ private:
   std::size_t _size, _capacity;
 };
 
-template <typename T, typename A>
+// template <typename T, typename A>
 
 #endif
