@@ -188,6 +188,227 @@ namespace decode_uncompressed {
 
 }
 
+struct hybridVertex {
+  void setInNeighbors(uintE* _i) { return ; }
+  void setOutNeighbors(uintE* _i) { return ; }
+  void setInDegree(uintT _d) { return;  }
+  void setOutDegree(uintT _d) { return;  }
+  void flipEdges() {}
+
+  virtual uintE* getInNeighbors () = 0;
+  virtual uintE* getOutNeighbors () = 0;
+  virtual uintE getInNeighbor(uintT j) = 0;
+  virtual uintE getOutNeighbor(uintT j) = 0;
+
+  void index_delete(uintT pos) {}
+  void index_addtion(uintT pos) {}
+  void push_back(uintE data) {}
+  void push_back(myVector<uintE>::iterator start, myVector<uintE>::iterator end) {}
+  void push_back() {}
+
+  virtual void setInNeighbor(uintT j, uintE ngh) = 0;
+  virtual void setOutNeighbor(uintT j, uintE ngh) = 0;
+
+  virtual uintT getInDegree() = 0;
+  virtual uintT getOutDegree() = 0;
+
+  virtual int	find(const uintE &val) = 0;
+
+  template <class VS, class F, class G>
+  inline void decodeInNghBreakEarly(long v_id, VS& vertexSubset, F &f, G &g, bool parallel = 0) {
+    decode_uncompressed::decodeInNghBreakEarly<hybridVertex, F, G, VS>(this, v_id, vertexSubset, f, g, parallel);
+  }
+
+  template <class F, class G>
+  inline void decodeOutNgh(long i, F &f, G& g) {
+     decode_uncompressed::decodeOutNgh<hybridVertex, F, G>(this, i, f, g);
+  }
+
+  template <class F, class G>
+  inline void decodeOutNghSparse(long i, uintT o, F &f, G &g) {
+    decode_uncompressed::decodeOutNghSparse<hybridVertex, F>(this, i, o, f, g);
+  }
+
+  template <class F, class G>
+  inline size_t decodeOutNghSparseSeq(long i, uintT o, F &f, G &g) {
+    return decode_uncompressed::decodeOutNghSparseSeq<hybridVertex, F>(this, i, o, f, g);
+  }
+
+  template <class E, class F, class G>
+  inline void copyOutNgh(long i, uintT o, F& f, G& g) {
+    decode_uncompressed::copyOutNgh<hybridVertex, E>(this, i, o, f, g);
+  }
+
+  template <class F>
+  inline size_t countOutNgh(long i, F &f) {
+    return decode_uncompressed::countOutNgh<hybridVertex, F>(this, i, f);
+  }
+
+  template <class F>
+  inline size_t packOutNgh(long i, F &f, bool* bits, uintE* tmp1, uintE* tmp2) {
+    return decode_uncompressed::packOutNgh<hybridVertex, F>(this, i, f, bits, tmp1);
+  }
+
+};
+
+struct highDegreeVertex : hybridVertex
+{
+  myVector<uintE> outNeighbors;
+
+  highDegreeVertex(myVector<uintE> n) : outNeighbors(n) {}
+
+  highDegreeVertex() { outNeighbors = myVector<uintE>(); }
+
+  highDegreeVertex(uintE * point, uintT length) {
+    for (auto i=0; i<length; i++) {
+      outNeighbors.push_back(point[i]);
+    }
+  }
+
+  uintE* getInNeighbors () { return outNeighbors.data(); }
+  const uintE* getInNeighbors () const { return outNeighbors.data(); }
+  uintE* getOutNeighbors () { return outNeighbors.data(); }
+  const uintE* getOutNeighbors () const { return outNeighbors.data(); }
+  uintE getInNeighbor(uintT j) { return outNeighbors[j]; }
+  uintE getOutNeighbor(uintT j) { return outNeighbors[j]; }
+
+  void index_delete(uintT pos) { outNeighbors.index_delete(pos); }
+  void index_addtion(uintE data, uintT pos) { outNeighbors.index_addtion(data, pos); }
+  void push_back(uintE data) { outNeighbors.push_back(data); }
+  void push_back(myVector<uintE>::iterator start, myVector<uintE>::iterator end) { outNeighbors.push_back(start, end); }
+  void pop_back() { outNeighbors.pop_back(); }
+
+  void setInNeighbor(uintT j, uintE ngh) { outNeighbors[j] = ngh; }
+  void setOutNeighbor(uintT j, uintE ngh) { outNeighbors[j] = ngh; }
+
+  uintT getInDegree() { return outNeighbors.size(); }
+  uintT getOutDegree() { return outNeighbors.size(); }
+
+  int	find(const uintE &val) { return outNeighbors.find(val); }
+
+  highDegreeVertex& operator=(const highDegreeVertex & other) {
+    if (&other != this) {
+      outNeighbors = other.outNeighbors;
+    }
+    return *this;
+  }
+
+  template <class VS, class F, class G>
+  inline void decodeInNghBreakEarly(long v_id, VS& vertexSubset, F &f, G &g, bool parallel = 0) {
+    decode_uncompressed::decodeInNghBreakEarly<highDegreeVertex, F, G, VS>(this, v_id, vertexSubset, f, g, parallel);
+  }
+
+  template <class F, class G>
+  inline void decodeOutNgh(long i, F &f, G& g) {
+     decode_uncompressed::decodeOutNgh<highDegreeVertex, F, G>(this, i, f, g);
+  }
+
+  template <class F, class G>
+  inline void decodeOutNghSparse(long i, uintT o, F &f, G &g) {
+    decode_uncompressed::decodeOutNghSparse<highDegreeVertex, F>(this, i, o, f, g);
+  }
+
+  template <class F, class G>
+  inline size_t decodeOutNghSparseSeq(long i, uintT o, F &f, G &g) {
+    return decode_uncompressed::decodeOutNghSparseSeq<highDegreeVertex, F>(this, i, o, f, g);
+  }
+
+  template <class E, class F, class G>
+  inline void copyOutNgh(long i, uintT o, F& f, G& g) {
+    decode_uncompressed::copyOutNgh<highDegreeVertex, E>(this, i, o, f, g);
+  }
+
+  template <class F>
+  inline size_t countOutNgh(long i, F &f) {
+    return decode_uncompressed::countOutNgh<highDegreeVertex, F>(this, i, f);
+  }
+
+  template <class F>
+  inline size_t packOutNgh(long i, F &f, bool* bits, uintE* tmp1, uintE* tmp2) {
+    return decode_uncompressed::packOutNgh<highDegreeVertex, F>(this, i, f, bits, tmp1);
+  }
+};
+
+
+struct lowDegreeVertex : hybridVertex
+{
+  myVector <uintT> versions;
+  uintT pos;
+  myVector <myVector<uintE>> edges;
+
+  lowDegreeVertex() {}
+
+  lowDegreeVertex(myVector<uintE> data) {
+    versions.push_back(0);
+    myVector <uintE> e = *(new myVector<uintE> (data));
+    edges.push_back(e);
+  }
+
+  lowDegreeVertex(uintE * data, uintT length) {
+    versions.push_back(0);
+    myVector <uintE> e;
+    for (auto i=0; i<length; i++) {
+      e.push_back(data[i]);
+    }
+    edges.push_back(e);
+  }
+
+  uintE * getInNeighbors() { return edges[pos].data(); }
+  uintE * getOutNeighbors() { return getInNeighbors(); }
+  uintE getInNeighbor(uintT j) {
+    return edges[pos][j];
+  }
+  uintE getOutNeighbor(uintT j) {
+    return getInNeighbor(j);
+  }
+  void setInNeighbor(uintT j, uintE ngh) { edges[pos][j] = ngh; }
+  void setOutNeighbor(uintT j, uintE ngh) { setInNeighbor(j, ngh); }
+  
+  int find(const uintE & val) {
+    return edges[pos].find(val);
+  }
+
+  uintT getInDegree() const { return edges[pos].size(); }
+  uintT getOutDegree() const { return getInDegree(); }
+  uintT getInDegree() { return edges[pos].size(); }
+  uintT getOutDegree() { return getInDegree(); }
+
+  template <class VS, class F, class G>
+  inline void decodeInNghBreakEarly(long v_id, VS& vertexSubset, F &f, G &g, bool parallel = 0) {
+    decode_uncompressed::decodeInNghBreakEarly<lowDegreeVertex, F, G, VS>(this, v_id, vertexSubset, f, g, parallel);
+  }
+
+  template <class F, class G>
+  inline void decodeOutNgh(long i, F &f, G& g) {
+     decode_uncompressed::decodeOutNgh<lowDegreeVertex, F, G>(this, i, f, g);
+  }
+
+  template <class F, class G>
+  inline void decodeOutNghSparse(long i, uintT o, F &f, G &g) {
+    decode_uncompressed::decodeOutNghSparse<lowDegreeVertex, F>(this, i, o, f, g);
+  }
+
+  template <class F, class G>
+  inline size_t decodeOutNghSparseSeq(long i, uintT o, F &f, G &g) {
+    return decode_uncompressed::decodeOutNghSparseSeq<lowDegreeVertex, F>(this, i, o, f, g);
+  }
+
+  template <class E, class F, class G>
+  inline void copyOutNgh(long i, uintT o, F& f, G& g) {
+    decode_uncompressed::copyOutNgh<lowDegreeVertex, E>(this, i, o, f, g);
+  }
+
+  template <class F>
+  inline size_t countOutNgh(long i, F &f) {
+    return decode_uncompressed::countOutNgh<lowDegreeVertex, F>(this, i, f);
+  }
+
+  template <class F>
+  inline size_t packOutNgh(long i, F &f, bool* bits, uintE* tmp1, uintE* tmp2) {
+    return decode_uncompressed::packOutNgh<lowDegreeVertex, F>(this, i, f, bits, tmp1);
+  }
+};
+
 struct symmetricVertex {
 #ifndef WEIGHTED
   myVector<uintE> outNeighbors;
@@ -239,6 +460,12 @@ symmetricVertex()
   void setInNeighbors(intE* _i) {  }
   void setOutNeighbors(intE* _i) {  }
 #endif
+
+  void index_delete(uintT pos) { outNeighbors.index_delete(pos); }
+  void index_addtion(uintE data, uintT pos) { outNeighbors.index_addtion(data, pos); }
+  void push_back(uintE data) { outNeighbors.push_back(data); }
+  void push_back(myVector<uintE>::iterator start, myVector<uintE>::iterator end) { outNeighbors.push_back(start, end); }
+  void pop_back() { outNeighbors.pop_back(); }
 
   uintT getInDegree() const { return outNeighbors.size(); }
   uintT getOutDegree() const { return outNeighbors.size(); }

@@ -19,13 +19,12 @@ public:
     _capacity = 1;
   }
 
-  myVector(const std::size_t & size, const T & val,
-    Alloc a = Alloc()) {
+  myVector(const std::size_t & size, const T & val, Alloc a = Alloc()) {
     _data = a.allocate(size);
     for (std::size_t i = 0; i < size; ++i)
       a.construct(_data + i, val);
     _size = _capacity = size;
-    }
+  }
   template<typename InputIterator>
   myVector(InputIterator begin, InputIterator end,
     Alloc a = Alloc()) {
@@ -257,12 +256,13 @@ public:
     push_back(val);
     if (index >= _size) {
       std::cout << "size erro in add" << _size << " " << index << std::endl;
+      abort();
       return -1;
     }
-    else {
+    // else {
       swap(index, _size - 1);
       return _size;
-    }
+    // }
   }
   //swap element
   void swap(const std::size_t index1, const std::size_t index2) {

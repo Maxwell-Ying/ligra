@@ -75,16 +75,17 @@ struct graph {
   uintE* flags;
   Deletable *D;
 
-graph(vertex* _V, long _n, long _m, Deletable* _D) : n(_n), m(_m),
-  D(_D), flags(NULL), transposed(0), version(0) {
+  graph(vertex* _V, long _n, long _m, Deletable* _D) : n(_n), m(_m),
+    D(_D), flags(NULL), transposed(0), version(0) {
     for(int i=0; i<_n; i++) {
       V.push_back(*(_V+i));
     }
   }
-graph(myVector<vertex> _V, long _n, long _m, Deletable* _D) : V(_V), n(_n), m(_m),
+
+  graph(myVector<vertex> _V, long _n, long _m, Deletable* _D) : V(_V), n(_n), m(_m),
   D(_D), flags(NULL), transposed(0), version(0) {}
 
-graph(vertex* _V, long _n, long _m, Deletable* _D, uintE* _flags, int _version) : V(_V),
+  graph(vertex* _V, long _n, long _m, Deletable* _D, uintE* _flags, int _version) : V(_V),
   n(_n), m(_m), D(_D), flags(_flags), transposed(0), version(_version) {}
 
   void del() {
@@ -106,6 +107,10 @@ graph(vertex* _V, long _n, long _m, Deletable* _D, uintE* _flags, int _version) 
 	  return V.data();
   }
 
+  vertex * getvertex(uintT j) {
+    return &V[j];
+  }
+
   int get_edge_number() {
     int count = 0;
     for (auto v : V) {
@@ -122,7 +127,7 @@ graph(vertex* _V, long _n, long _m, Deletable* _D, uintE* _flags, int _version) 
     return count;
   }
 
-  int getversion() {
+  int get_version() {
     return version;
   }
 
@@ -134,7 +139,7 @@ graph(vertex* _V, long _n, long _m, Deletable* _D, uintE* _flags, int _version) 
     m = ret;
   }
 
-  void setversion(int vers) {
+  void set_version(int vers) {
     version = vers;
   }
 
@@ -154,6 +159,71 @@ graph(vertex* _V, long _n, long _m, Deletable* _D, uintE* _flags, int _version) 
       // }
     }
     // abort();
+    return ret;
+  }
+};
+
+template <>
+struct graph<hybridVertex> {
+  myVector<hybridVertex*> V;
+  int version;
+  long m;
+  long n;
+  bool transposed;
+  uintE * flags;
+  Deletable * D;
+
+  graph(myVector<hybridVertex *> _V, long _n, long _m, Deletable* _D) : V(_V), n(_n), m(_m),
+  D(_D), flags(NULL), transposed(0), version(0) {}
+
+  void del() {
+    if (flags != NULL) free(flags);
+    D->del();
+    free(D);
+    if (V.size() > 0) {
+      for (auto i = 0; i < V.size(); i++) {
+        if (i) {
+          delete V[i];
+          V[i] = NULL;
+        }
+      }
+    }
+  }
+
+  hybridVertex * getvertex() {
+    return V[0];
+  }
+
+  hybridVertex * getvertex(uintT j) {
+    if (j >= n) {
+      cout << "wrong vertex index" << endl;
+      abort();
+    }
+    return V[j];
+  }
+
+  int get_edge_number() {
+    int ret = 0;
+    for (auto i : V) {
+      ret += i->getInDegree();
+    }
+    return ret;
+  }
+  
+  int get_version() {
+    return version;
+  }
+
+  void set_version(int vers) {
+    version = vers;
+  }
+  uintE accessAllEdges() {
+    uintE ret = 0;
+    for (auto i: V) {
+      for (auto j=0; j<i->getInDegree(); j++) {
+        ret &= i->getInNeighbor(j);
+      }
+    }
     return ret;
   }
 };

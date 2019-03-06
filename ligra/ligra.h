@@ -64,14 +64,14 @@ template <class data, class vertex, class VS, class F>
 vertexSubsetData<data> edgeMapDense(graph<vertex> * GA, VS& vertexSubset, F &f, const flags fl) {
   using D = tuple<bool, data>;
   long n = GA->n;
-  vertex *G = GA->getvertex();
+  // vertex *G = GA->getvertex();
   if (should_output(fl)) {
     D* next = newA(D, n);
     auto g = get_emdense_gen<data>(next);
     parallel_for (long v=0; v<n; v++) {
       std::get<0>(next[v]) = 0;
       if (f.cond(v)) {
-        G[v].decodeInNghBreakEarly(v, vertexSubset, f, g, fl & dense_parallel);
+        GA->getvertex(v)->decodeInNghBreakEarly(v, vertexSubset, f, g, fl & dense_parallel);
       }
     }
     return vertexSubsetData<data>(n, next);
@@ -79,7 +79,7 @@ vertexSubsetData<data> edgeMapDense(graph<vertex> * GA, VS& vertexSubset, F &f, 
     auto g = get_emdense_nooutput_gen<data>();
     parallel_for (long v=0; v<n; v++) {
       if (f.cond(v)) {
-        G[v].decodeInNghBreakEarly(v, vertexSubset, f, g, fl & dense_parallel);
+        GA->getvertex(v)->decodeInNghBreakEarly(v, vertexSubset, f, g, fl & dense_parallel);
       }
     }
     return vertexSubsetData<data>(n);
@@ -90,14 +90,14 @@ template <class data, class vertex, class VS, class F>
 vertexSubsetData<data> edgeMapDenseForward(graph<vertex> * GA, VS& vertexSubset, F &f, const flags fl) {
   using D = tuple<bool, data>;
   long n = GA->n;
-  vertex *G = GA->getvertex();
+  // vertex *G = GA->getvertex();
   if (should_output(fl)) {
     D* next = newA(D, n);
     auto g = get_emdense_forward_gen<data>(next);
     parallel_for(long i=0;i<n;i++) { std::get<0>(next[i]) = 0; }
     parallel_for (long i=0; i<n; i++) {
       if (vertexSubset.isIn(i)) {
-        G[i].decodeOutNgh(i, f, g);
+        GA->getvertex(i)->decodeOutNgh(i, f, g);
       }
     }
     return vertexSubsetData<data>(n, next);
@@ -105,7 +105,7 @@ vertexSubsetData<data> edgeMapDenseForward(graph<vertex> * GA, VS& vertexSubset,
     auto g = get_emdense_forward_nooutput_gen<data>();
     parallel_for (long i=0; i<n; i++) {
       if (vertexSubset.isIn(i)) {
-        G[i].decodeOutNgh(i, f, g);
+        GA->getvertex(i)->decodeOutNgh(i, f, g);
       }
     }
     return vertexSubsetData<data>(n);
@@ -363,7 +363,7 @@ vertexSubsetData<data> edgeMapData(graph<vertex>& GA, VS &vs, F f,
     intT threshold = -1, const flags& fl=0) {
   long numVertices = GA.n, numEdges = GA.m, m = vs.numNonzeros();
   if(threshold == -1) threshold = numEdges/20; //default threshold
-  vertex *G = GA.getvertex();
+  // vertex *G = GA.getvertex();
   if (numVertices != vs.numRows()) {
     cout << "edgeMap: Sizes Don't match" << endl;
     abort();
@@ -385,8 +385,8 @@ vertexSubsetData<data> edgeMapData(graph<vertex>& GA, VS &vs, F f,
   vertex ** frontierVertices = newA(vertex*, m);
   {parallel_for (size_t i=0; i<m; i++) {
     uintE v_id = vs.vtx(i);
-    degrees[i] = G[v_id].getOutDegree();
-    frontierVertices[i] = &G[v_id];
+    degrees[i] = GA.getvertex(v_id)->getOutDegree();
+    frontierVertices[i] = GA.getvertex(v_id);
   }}
 
   uintT outDegrees = sequence::plusReduce(degrees, m);
@@ -423,14 +423,15 @@ template <class vertex, class P>
 vertexSubsetData<uintE> packEdges(graph<vertex>& GA, vertexSubset& vs, P& p, const flags& fl=0) {
   using S = tuple<uintE, uintE>;
   vs.toSparse();
-  vertex* G = GA.getvertex(); long m = vs.numNonzeros(); long n = vs.numRows();
+  // vertex* G = GA.getvertex(); 
+  long m = vs.numNonzeros(); long n = vs.numRows();
   if (vs.size() == 0) {
     return vertexSubsetData<uintE>(n);
   }
   auto degrees = array_imap<uintT>(m);
   granular_for(i, 0, m, (m > 2000), {
     uintE v = vs.vtx(i);
-    degrees[i] = G[v].getOutDegree();
+    degrees[i] = GA.getvertex(v)->getOutDegree();
   });
   long outEdgeCount = pbbs::scan_add(degrees, degrees);
   S* outV;
@@ -447,7 +448,7 @@ vertexSubsetData<uintE> packEdges(graph<vertex>& GA, vertexSubset& vs, P& p, con
       size_t offset = degrees[i];
       auto bitsOff = &(bits[offset]); auto tmp1Off = &(tmp1[offset]);
       auto tmp2Off = &(tmp2[offset]);
-      size_t ct = G[v].packOutNgh(v, p, bitsOff, tmp1Off, tmp2Off);
+      size_t ct = GA.getvertex(v)->packOutNgh(v, p, bitsOff, tmp1Off, tmp2Off);
       outV[i] = make_tuple(v, ct);
     }
   } else {
@@ -456,7 +457,7 @@ vertexSubsetData<uintE> packEdges(graph<vertex>& GA, vertexSubset& vs, P& p, con
       size_t offset = degrees[i];
       auto bitsOff = &(bits[offset]); auto tmp1Off = &(tmp1[offset]);
       auto tmp2Off = &(tmp2[offset]);
-      size_t ct = G[v].packOutNgh(v, p, bitsOff, tmp1Off, tmp2Off);
+      size_t ct = GA.getvertex(v)->packOutNgh(v, p, bitsOff, tmp1Off, tmp2Off);
     }
   }
   free(bits); free(tmp1); free(tmp2);
@@ -473,7 +474,8 @@ vertexSubsetData<uintE> edgeMapFilter(graph<vertex>& GA, vertexSubset& vs, P& p,
   if (fl & pack_edges) {
     return packEdges<vertex, P>(GA, vs, p, fl);
   }
-  vertex* G = GA.getvertex(); long m = vs.numNonzeros(); long n = vs.numRows();
+  // vertex* G = GA.getvertex(); 
+  long m = vs.numNonzeros(); long n = vs.numRows();
   using S = tuple<uintE, uintE>;
   if (vs.size() == 0) {
     return vertexSubsetData<uintE>(n);
@@ -485,13 +487,13 @@ vertexSubsetData<uintE> edgeMapFilter(graph<vertex>& GA, vertexSubset& vs, P& p,
   if (should_output(fl)) {
     parallel_for (size_t i=0; i<m; i++) {
       uintE v = vs.vtx(i);
-      size_t ct = G[v].countOutNgh(v, p);
+      size_t ct = GA.getvertex(v)->countOutNgh(v, p);
       outV[i] = make_tuple(v, ct);
     }
   } else {
     parallel_for (size_t i=0; i<m; i++) {
       uintE v = vs.vtx(i);
-      size_t ct = G[v].countOutNgh(v, p);
+      size_t ct = GA.getvertex(v)->countOutNgh(v, p);
     }
   }
   if (should_output(fl)) {
@@ -608,6 +610,8 @@ int parallel_main(int argc, char* argv[]) {
   bool compressed = P.getOptionValue("-c");
   bool binary = P.getOptionValue("-b");
   bool mmap = P.getOptionValue("-m");
+  bool hybrid_vertex = P.getOptionValue("-h");
+  bool version_graph = P.getOptionValue("-g");
   int delta_num = P.getOptionIntValue("-n", 9);
   double add_rate = P.getOptionDoubleValue("-r", 0.9);
   double delta_rate = P.getOptionDoubleValue("-f", 0.01);
@@ -620,84 +624,142 @@ int parallel_main(int argc, char* argv[]) {
 
   // string basedir = "/public/home/tangwei/graphdata/livejournal/delta/";
   string basedir = "/public/home/tangwei/graphdata/link-dynamic-dewiki/cleaned/";
-  startTime();
-  graph<symmetricVertex> G =
-    readGraph<symmetricVertex>(iFile,compressed,symmetric,binary,mmap); //symmetric graph
-  nextTime("load graph ");
-  cout << "dirty data" << G.accessAllEdges() << endl;
-  // Compute(G, P);
-  // nextTime("running time");
-  // G.del();
-  // return 0;
-
-  // cout << G.get_edge_capicity() << endl;
-  // cout << G.get_edge_number() << endl;
-  bigDelta<symmetricVertex> bdelta;
-  // print_mem(pid);
-  // cout << "graph origin size " << G.get_edge_number() << endl;
-  // startTime();
-  for (auto i = 0; i < delta_num; i++) {
-    cout << "delta : " << i << "-" << i+1 << endl;
-    // delta_log<symmetricVertex> dlg = delta_log<symmetricVertex>(G);
-    // cout << dlg.deltaLog.size() << endl;
-    string filename = basedir + to_string(i) + '-' + to_string(i+1);
-    
-    delta_log<symmetricVertex> dlg = load_deltalog_from_file<symmetricVertex>(G, filename.c_str());
-    // print_mem(pid);
-    // write_deltalog_to_file<symmetricVertex>(dlg, filename.c_str());
-    delta<symmetricVertex> dlt = delta<symmetricVertex>(dlg, G);
-    
-    
-    // print_mem(pid);
-    // cout << bdelta.size() << " " << bdelta.capacity() << endl;
-    bdelta.append(dlt);
-    // cout << bdelta.size() << " " << bdelta.capacity() << endl;
-    // print_mem(pid);
-    // apply(G, dlt);
-    forward(G, bdelta);
-    
-    // nextTime("get  a delta")
-    print_mem(pid);
-    // cout << "edgenum " << G.get_edge_number() << endl;
+  if (!hybrid_vertex) {
     startTime();
+    graph<symmetricVertex> G =
+      readGraph<symmetricVertex>(iFile,compressed,symmetric,binary,mmap); //symmetric graph
+    nextTime("load graph ");
     cout << "dirty data" << G.accessAllEdges() << endl;
-    nextTime("access all edge ");
     
-    // abort();
-  }
-  // abort();
-  for(int r = 0; r < delta_num; r++) {
-    if (r%5) {
-      continue;
+    // Compute(G, P);
+    // nextTime("running time");
+    // G.del();
+    // return 0;
+
+    // cout << G.get_edge_capicity() << endl;
+    // cout << G.get_edge_number() << endl;
+
+    if (!version_graph) {
+      bigDelta<symmetricVertex> bdelta;
+      // print_mem(pid);
+      // cout << "graph origin size " << G.get_edge_number() << endl;
+      // startTime();
+      // get delta and merge into a bigDelta
+      for (auto i = 0; i < delta_num; i++) {
+        cout << "delta : " << i << "-" << i+1 << endl;
+        // delta_log<symmetricVertex> dlg = delta_log<symmetricVertex>(G);
+        // cout << dlg.deltaLog.size() << endl;
+        string filename = basedir + to_string(i) + '-' + to_string(i+1);
+        
+        delta_log<symmetricVertex> dlg = load_deltalog_from_file<symmetricVertex>(G, filename.c_str());
+        // print_mem(pid);
+        // write_deltalog_to_file<symmetricVertex>(dlg, filename.c_str());
+        delta<symmetricVertex> dlt = delta<symmetricVertex>(dlg, G);
+        
+        // print_mem(pid);
+        bdelta.append(dlt);
+        // print_mem(pid);
+        forward(G, bdelta);
+        
+        // nextTime("get  a delta")
+        print_mem(pid);
+        // cout << "edgenum " << G.get_edge_number() << endl;
+        startTime();
+        cout << "dirty data" << G.accessAllEdges() << endl;
+        nextTime("access all edge ");
+      }
+      // switch and compute every 5 version
+      for(int r = 0; r < delta_num; r++) {
+        if (r%5) {
+          continue;
+        }
+        jump(G, bdelta, delta_num);
+        // cout << r << endl;
+        startTime();
+        jump(G, bdelta, r);
+        nextTime("switch ");
+
+        Compute(G, P);
+
+        startTime();
+        Compute(G, P);
+        nextTime("Running time")
+      }
+
+      // Compute(G,P);
+      // startTime();
+      // random switch with skew in version
+      for(int r=0;r<rounds;r++) {
+        int randi = expdist.getRand(delta_num);
+        cout << "jump to version " << randi << endl;
+        startTime();
+        jump(G, bdelta, randi);
+        nextTime("addtime");
+        // cout << "graph origin size " << G.get_edge_number() << endl;
+        Compute(G,P);
+        startTime();
+        Compute(G,P);
+        nextTime("Running time");
+      }
+      G.del();
+    } else {
+      versionGraph<symmetricVertex> vg;
+      // vg.print_edges();
+      // get delta and merge into a bigDelta
+      for (auto i=0; i < delta_num; i++) {
+        cout << "version graph delta : " << i << "-" << i+1 << endl;
+        string filename = basedir + to_string(i) + '-' + to_string(i+1);
+        // vg.print_edges();
+        delta_log<symmetricVertex> dlg = load_deltalog_from_file<symmetricVertex>(G, filename.c_str());
+        delta<symmetricVertex> *dlt = new delta<symmetricVertex>(dlg, G);
+        // dlt->print_vertex(78);
+        cout << dlt->vs << "------> " << dlt->ve << endl;
+        // vg.print_edges();
+        vg.append(G, dlt);
+        // vg.print_edges();
+        jump(G, vg, dlt->ve);
+
+        print_mem(pid);
+        startTime();
+        cout << "dirty data" << G.accessAllEdges() << endl;
+        nextTime("access all edge ");
+      }
+      // switch and compute every 5 version
+      for(int r = 0; r < delta_num; r++) {
+        if (r%5) {
+          continue;
+        }
+        jump(G, vg, delta_num);
+        cout << r << " : " << endl;
+        startTime();
+        jump(G, vg, r);
+        nextTime("switch ");
+
+        Compute(G, P);
+
+        startTime();
+        Compute(G, P);
+        nextTime("Running time")
+      }
+      // random switch with skew in version
+      for(int r=0;r<rounds;r++) {
+        int randi = expdist.getRand(delta_num);
+        cout << "jump to version " << randi << endl;
+        startTime();
+        jump(G, vg, randi);
+        nextTime("addtime");
+        // cout << "graph origin size " << G.get_edge_number() << endl;
+        Compute(G,P);
+        startTime();
+        Compute(G,P);
+        nextTime("Running time");
+      }
+      G.del();
     }
-    jump(G, bdelta, delta_num);
-    // cout << r << endl;
-    startTime();
-    jump(G, bdelta, r);
-    nextTime("switch ");
-
-    Compute(G, P);
-
-    startTime();
-    Compute(G, P);
-    nextTime("Running time")
+  } else { // code for hybrid vertex
+    
   }
-
-  // Compute(G,P);
-  // startTime();
-  for(int r=0;r<rounds;r++) {
-    int randi = expdist.getRand(delta_num);
-    cout << "jump to version " << randi << endl;
-    startTime();
-    jump(G, bdelta, randi);
-    nextTime("addtime");
-    // cout << "graph origin size " << G.get_edge_number() << endl;
-    Compute(G,P);
-    startTime();
-    Compute(G,P);
-    nextTime("Running time");
-  }
-  G.del();
+  return 0;
 }
 
 #endif

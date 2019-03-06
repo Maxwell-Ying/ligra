@@ -284,6 +284,62 @@ graph<vertex> readGraphFromFile(char *fname) {
   return graph<vertex>(v,n,m,mem);
 }
 
+uintT get_offset_wall(uintT * arr, long length, float percent) {
+  vector <uintT> v(arr, arr+length);
+  sort(v.begin(), v.end());
+  return v[int(length*percent)];
+}
+
+graph<hybridVertex> readGraphFromFile(char *fname) {
+    words W;
+  _seq<char> S = readStringFromFile(fname);
+  W = stringToWords(S.A, S.n);
+  if (W.Strings[0] != (string) "AdjacencyGraph") {
+    cout << "Bad input file : bad head" << endl;
+    cout << W.Strings[0] << endl;
+    exit(0);
+  }
+
+  long len = W.m -1;
+  long n = atol(W.Strings[1]);
+  long m = atol(W.Strings[2]);
+
+  if (len != n + m + 2) {
+    cout << "Bad input file : bad size in head" << endl;
+    cout << "len: " << len << " n: " << n << " m: " << m << endl;
+    cout << W.Strings[0] << W.Strings[len] << endl;
+    exit(0);
+  }
+
+  uintT* offsets = newA(uintT,n);
+  uintE* edges = newA(uintE,m);
+  {parallel_for(long i=0; i < n; i++) offsets[i] = atol(W.Strings[i + 3]);}
+  {parallel_for(long i=0; i<m; i++) {
+    edges[i] = atol(W.Strings[i+n+3]);
+  }}
+
+  W.del();
+
+  uintT offset_wall = get_offset_wall(offsets, n, 0.05);
+
+  myVector<hybridVertex *> v;
+  v.resize(n);
+  {parallel_for(uintT i=0; i < n; i++) {
+    uintT o = offsets[i];
+    uintT l = (i == n - 1) ? m : offsets[i + 1];
+    if (o > offset_wall) {
+      v[i] = new highDegreeVertex(edges+o, l-o);
+    } else {
+      v[i] = new lowDegreeVertex(edges+o, l-o);
+    }
+  }}
+
+  free(offsets);
+  free(edges);
+  Empty_Mem * mem = new Empty_Mem();
+  return graph<hybridVertex>(v,n,m,mem);
+}
+
 template <class vertex>
 graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) {
   words W;
@@ -357,7 +413,6 @@ graph<vertex> readGraphFromFile(char* fname, bool isSymmetric, bool mmap) {
     for (uintT j = o; j < l; j++)
       v[i].outNeighbors.push_back(edges[j]);
   }}//Put the outneighbors of each edge into the corresponding vector
-#else
 #endif
 
   if(!isSymmetric) {
