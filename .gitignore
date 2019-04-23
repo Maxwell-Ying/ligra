@@ -8,4 +8,7 @@ apps/*~
 *~
 run.sh
 result/*
+tmp/*
+*.txt
+nohup.out
 

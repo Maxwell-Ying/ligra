@@ -40,6 +40,7 @@
 #include "myVector.h"
 #include "get_mem.h"
 #include "delta.h"
+#include "myutil.h"
 using namespace std;
 
 typedef pair<uintE,uintE> intPair;
@@ -271,26 +272,36 @@ graph<vertex> readGraphFromFile(char *fname) {
   {parallel_for(uintT i = 0; i < n; i++) {
     uintT o = offsets[i];
     uintT l = (i == n - 1) ? m : offsets[i + 1];
-    v[i].outNeighbors.reserve(l-o);
+    v[i].reserve(l-o);
     for (uintT j = o; j < l; j++)
-      v[i].outNeighbors.push_back(edges[j]);
+      v[i].push_back(edges[j]);
   }}//Put the outneighbors of each edge into the corresponding vector
 
 
   free(offsets);
   free(edges);
+
   // Uncompressed_Mem<vertex>* mem = new Uncompressed_Mem<vertex>(v,n,m,NULL);
   Empty_Mem * mem = new Empty_Mem();
   return graph<vertex>(v,n,m,mem);
 }
 
-uintT get_offset_wall(uintT * arr, long length, float percent) {
-  vector <uintT> v(arr, arr+length);
+uintT get_offset_wall(uintT * arr, long number, long length, float percent) {
+  vector<uintT> v;
+  // cout << "before pushback" << endl;
+  for (auto i=0; i<number; i++) {
+    if (i==number-1) {
+      v.push_back(length-arr[i]);
+    } else {
+      v.push_back(arr[i+1] - arr[i]);
+    }
+  }
+  // cout << "before sort " << endl;
   sort(v.begin(), v.end());
-  return v[int(length*percent)];
+  return v[int(number*(1-percent))];
 }
 
-graph<hybridVertex> readGraphFromFile(char *fname) {
+graph<HVertex> readHGraphFromFile(char *fname) {
     words W;
   _seq<char> S = readStringFromFile(fname);
   W = stringToWords(S.A, S.n);
@@ -299,6 +310,8 @@ graph<hybridVertex> readGraphFromFile(char *fname) {
     cout << W.Strings[0] << endl;
     exit(0);
   }
+
+  cout << "begin read graph " << endl;
 
   long len = W.m -1;
   long n = atol(W.Strings[1]);
@@ -317,27 +330,34 @@ graph<hybridVertex> readGraphFromFile(char *fname) {
   {parallel_for(long i=0; i<m; i++) {
     edges[i] = atol(W.Strings[i+n+3]);
   }}
-
+  
   W.del();
+  
+  uintT offset_wall = get_offset_wall(offsets, n, m, 0.05);
 
-  uintT offset_wall = get_offset_wall(offsets, n, 0.05);
+  cout << "get wall " << offset_wall << endl;
+  myVector<HVertex> v;
 
-  myVector<hybridVertex *> v;
+  // unordered_map<uintE, bool> hdv;
   v.resize(n);
   {parallel_for(uintT i=0; i < n; i++) {
     uintT o = offsets[i];
     uintT l = (i == n - 1) ? m : offsets[i + 1];
-    if (o > offset_wall) {
-      v[i] = new highDegreeVertex(edges+o, l-o);
+    
+    if (l-o > offset_wall) {
+      v[i].push_back(edges+o, l-o);
+      // hdv.insert(make_pair(i, true));
     } else {
-      v[i] = new lowDegreeVertex(edges+o, l-o);
+      v[i].build(edges+o, l-o);
     }
   }}
 
   free(offsets);
   free(edges);
   Empty_Mem * mem = new Empty_Mem();
-  return graph<hybridVertex>(v,n,m,mem);
+
+  // cout << "before return" << endl;
+  return graph<HVertex>(v,n,m,mem);
 }
 
 template <class vertex>

@@ -20,19 +20,30 @@ public:
   }
 
   myVector(const std::size_t & size, const T & val, Alloc a = Alloc()) {
-    _data = a.allocate(size);
-    for (std::size_t i = 0; i < size; ++i)
-      a.construct(_data + i, val);
-    _size = _capacity = size;
+    if (size == 0) {
+      _data = a.allocate(1);
+      _size = 0;
+      _capacity = 1;
+    } else {
+      _data = a.allocate(size);
+      for (std::size_t i = 0; i < size; ++i)
+        a.construct(_data + i, val);
+      _size = _capacity = size;
+    }
   }
   template<typename InputIterator>
-  myVector(InputIterator begin, InputIterator end,
-    Alloc a = Alloc()) {
-    _size = _capacity = end - begin;
-    _data = a.allocate(_size);
-    std::size_t cnt = 0;
-    for (InputIterator it = begin; it != end; ++it)
-      a.construct(_data + (cnt++), *it);
+  myVector(InputIterator begin, InputIterator end, Alloc a = Alloc()) {
+    if ((end - begin) == 0) {
+      _data = _a.allocate(1);
+      _size = 0;
+      _capacity = 1;
+    } else {
+      _size = _capacity = end - begin;
+      _data = a.allocate(_size);
+      std::size_t cnt = 0;
+      for (InputIterator it = begin; it != end; ++it)
+        a.construct(_data + (cnt++), *it);
+    }
   }
   myVector(const myVector & other) {
     _size = other._size;
@@ -213,6 +224,13 @@ public:
     _a.construct(_data + (_size++), val);
   }
 
+  void careful_push_back(const T & val) {
+    if (_size >= _capacity) {
+      reserve(_capacity + 1);
+    }
+    _a.construct(_data + (_size++), val);
+  }
+
   void push_back(iterator begin, iterator end) {
     std::size_t newSize = 0;
     iterator it;
@@ -231,10 +249,10 @@ public:
     _size = _size + newSize;
   }
 
-  T pop_back() {
-    T back = _data[_size -1];
+  void pop_back() {
+    // T back = _data[_size -1];
     _a.destroy(_data + (--_size));
-    return back;
+    // return back;
   }//
 
   void clear() {

@@ -25,6 +25,7 @@
 #define LIGRA_H
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <stdlib.h>
 #include <cstring>
 #include <string>
@@ -613,17 +614,161 @@ int parallel_main(int argc, char* argv[]) {
   bool hybrid_vertex = P.getOptionValue("-h");
   bool version_graph = P.getOptionValue("-g");
   int delta_num = P.getOptionIntValue("-n", 9);
-  double add_rate = P.getOptionDoubleValue("-r", 0.9);
-  double delta_rate = P.getOptionDoubleValue("-f", 0.01);
+  int delta_type = P.getOptionIntValue("-type", 0);
+  double add_rate = P.getOptionDoubleValue("-r", 2);
+  double delta_rate = P.getOptionDoubleValue("-f", 2);
   expDist expdist = expDist();
   //cout << "mmap = " << mmap << endl;
   long rounds = P.getOptionLongValue("-rounds",20);
 
   int pid = get_pid("BellmanFord");
   print_mem(pid);
+  cout.setf(ios::fixed, ios::floatfield);
 
-  // string basedir = "/public/home/tangwei/graphdata/livejournal/delta/";
-  string basedir = "/public/home/tangwei/graphdata/link-dynamic-dewiki/cleaned/";
+  string filename(iFile);
+  string basedir;
+  if (filename.find("journal") != filename.npos) {
+    // basedir = "/public/home/tangwei/graphdata/livejournal/treedelta2/";
+    basedir = "/public/home/tangwei/graphdata/livejournal/smalldelta/";
+  } else if (filename.find("dewiki") != filename.npos) {
+    // basedir = "/public/home/tangwei/graphdata/link-dynamic-dewiki/cleaned/";
+    basedir = "/public/home/tangwei/graphdata/link-dynamic-dewiki/smalldelta/";
+  } else if (filename.find("flickr") != filename.npos) {
+    if (delta_rate != 2 || add_rate != 2) {
+      if (delta_rate == 2) {
+        delta_rate = 0.001;
+      }
+      if (add_rate == 2) {
+        add_rate = 0.9;
+      }
+      ostringstream str1, str2;
+      str1 << delta_rate;
+      string delta_rate_string = str1.str();
+      str2 << add_rate;
+      string add_rate_string = str2.str();
+      basedir = string("/public/home/tangwei/graphdata/flickr/d") + delta_rate_string + "-a" + add_rate_string + '/';
+    } else {
+      if (delta_type == 0) {
+        basedir = "/public/home/tangwei/graphdata/flickr/smalldelta/";
+        cout << "delta type small " << endl;
+      } else if (delta_type == 1) {
+        basedir = "/public/home/tangwei/graphdata/flickr/delta/";
+        cout << "delta type normal " << endl;
+      } else if (delta_type == 2) {
+        basedir = "/public/home/tangwei/graphdata/flickr/smalltree/";
+        cout << "delta type small tree " << endl;
+      } else if (delta_type == 3) {
+        basedir = "/public/home/tangwei/graphdata/flickr/deletedelta/";
+        cout << "delta type delete " << endl;
+      } else {
+        cout << "bad delta type " << delta_type << endl;
+        abort();
+      }
+    }
+  } else if (filename.find("enwiki") != filename.npos) {
+    basedir = "/public/home/tangwei/graphdata/enwiki/smalldelta/";
+  } else if (filename.find("orkut") != filename.npos) {
+    basedir = "/public/home/tangwei/graphdata/orkut/smalldelta/";
+  } else if (filename.find("twitter") != filename.npos) {
+    basedir = "/public/home/tangwei/graphdata/twitter/smalldelta/";
+  } else {
+    cout << "file " << iFile << " dont have related delta file, please reach admin for help" << endl;
+    return 0;
+  }
+
+  /////  code for generate delta
+  /*
+  int delta_step = 0;
+  graph<symmetricVertex> G = readGraphFromFile<symmetricVertex>(iFile);
+  vector<delta_log<symmetricVertex>> deltalogs;
+  vector<delta<symmetricVertex>> deltas;
+  // graph<symmetricVertex> ga = readGraphFromFile<symmetricVertex>(iFile);
+  // string savedir = "/public/home/tangwei/graphdata/livejournal/treedelta2/";
+  string savedir;
+  if (delta_rate == 2) {
+    delta_rate = 0.001;
+  }
+  if (add_rate == 2) {
+    add_rate = 0.9;
+  }
+  if (filename.find("flickr") != filename.npos) {
+    ostringstream str1, str2;
+    str1 << delta_rate;
+    string delta_rate_string = str1.str();
+    str2 << add_rate;
+    string add_rate_string = str2.str();
+    savedir = string("/public/home/tangwei/graphdata/flickr/d") + delta_rate_string + "-a" + add_rate_string + '/';
+
+    // savedir = "/public/home/tangwei/graphdata/flickr/d" + to_string(delta_rate) + "-a" + to_string(add_rate) + '/'; 
+    // savedir = "/public/home/tangwei/graphdata/flickr/deletedelta/";
+  } else if (filename.find("enwiki") != filename.npos) {
+    savedir = "/public/home/tangwei/graphdata/enwiki/smalldelta/";
+  } else if (filename.find("orkut") != filename.npos) {
+    savedir = "/public/home/tangwei/graphdata/orkut/smalldelta/";
+  } else if (filename.find("journal") != filename.npos) {
+    savedir = "/public/home/tangwei/graphdata/livejournal/smalldelta/";
+  } else if (filename.find("dewiki") != filename.npos) {
+    savedir = "/public/home/tangwei/graphdata/link-dynamic-dewiki/smalldelta/";
+  } else if (filename.find("twitter") != filename.npos) {
+    savedir = "/public/home/tangwei/graphdata/twitter/smalldelta/";
+  } else {
+    cout << "file " << iFile << " dont have related delta file, please reach admin for help" << endl;
+    return 0;
+  }
+  // 
+  
+  for (auto i=1; i<=delta_num; i++) {
+    uintT new_from = get_new_from(i-1, delta_step);
+    cout << new_from << " to " << i << endl;
+    vector<uintT> path = get_revert_path(deltas, G.get_version(), new_from);
+    for (auto j : path) {
+      auto tmp = deltas[j];
+      if (tmp.ve == G.get_version()) {
+        revert(G, tmp);
+      } else if (tmp.vs == G.get_version()) {
+        apply(G, tmp);
+      } else {
+        cout << "error! delta in revert path not valid" << endl;
+      }
+    }
+    cout << "finish get path" << endl;
+    delta_log<symmetricVertex> dlg = delta_log<symmetricVertex>(G, add_rate, delta_rate, true);
+    cout << "finish get dlg" << endl;
+    cout << dlg.delta_rate << endl;
+    cout << dlg.deltaLog.size() << endl;
+    dlg.ver_end = i;
+    delta<symmetricVertex> dlt = delta<symmetricVertex>(dlg, G);
+    cout << "finish get dlt" << endl;
+    deltalogs.push_back(dlg);
+    deltas.push_back(dlt);
+    apply(G, dlt);
+    cout << "dirty after roll " << G.accessAllEdges() << endl;
+
+    string savefile = savedir + to_string(i-1) + '-' + to_string(i);
+    if (delta_step == 0) {
+      dlt.write_edge_entry(savefile.c_str());
+      cout << "finish write" << endl;
+    }
+    // uintT s = i-1;
+    // uintT e = i;
+    // path = get_revert_path(deltas, s, e);
+    // myVector<delta<symmetricVertex> *> ppath;
+    // for (auto & p: path) {
+    //   ppath.push_back(&deltas[p]);
+    //   cout << deltas[p].vs << " " << deltas[p].ve << endl;
+    // }
+    // delta<symmetricVertex> merged = delta<symmetricVertex>(ga, ppath, s, e);
+    
+    // merged.write_edge_entry(savefile.c_str());
+    // cout << "finish write " << s << endl;
+    // apply(ga, merged);
+  }
+  G.del();
+  // ga.del();
+  return 0;
+  */
+  /////  end of code for generate tree delta
+  
   if (!hybrid_vertex) {
     startTime();
     graph<symmetricVertex> G =
@@ -655,15 +800,12 @@ int parallel_main(int argc, char* argv[]) {
         // print_mem(pid);
         // write_deltalog_to_file<symmetricVertex>(dlg, filename.c_str());
         delta<symmetricVertex> dlt = delta<symmetricVertex>(dlg, G);
-        
         // print_mem(pid);
         bdelta.append(dlt);
         // print_mem(pid);
         forward(G, bdelta);
-        
         // nextTime("get  a delta")
         print_mem(pid);
-        // cout << "edgenum " << G.get_edge_number() << endl;
         startTime();
         cout << "dirty data" << G.accessAllEdges() << endl;
         nextTime("access all edge ");
@@ -685,9 +827,7 @@ int parallel_main(int argc, char* argv[]) {
         Compute(G, P);
         nextTime("Running time")
       }
-
-      // Compute(G,P);
-      // startTime();
+      
       // random switch with skew in version
       for(int r=0;r<rounds;r++) {
         int randi = expdist.getRand(delta_num);
@@ -704,21 +844,21 @@ int parallel_main(int argc, char* argv[]) {
       G.del();
     } else {
       versionGraph<symmetricVertex> vg;
-      // vg.print_edges();
+      // print_mem(pid);
       // get delta and merge into a bigDelta
       for (auto i=0; i < delta_num; i++) {
         cout << "version graph delta : " << i << "-" << i+1 << endl;
         string filename = basedir + to_string(i) + '-' + to_string(i+1);
-        // vg.print_edges();
+        // print_mem(pid);
         delta_log<symmetricVertex> dlg = load_deltalog_from_file<symmetricVertex>(G, filename.c_str());
+        // print_mem(pid);
         delta<symmetricVertex> *dlt = new delta<symmetricVertex>(dlg, G);
-        // dlt->print_vertex(78);
-        cout << dlt->vs << "------> " << dlt->ve << endl;
-        // vg.print_edges();
+        // print_mem(pid);
+        uintT tmp = dlt->ve;
+        
         vg.append(G, dlt);
-        // vg.print_edges();
-        jump(G, vg, dlt->ve);
-
+        // print_mem(pid);
+        jump(G, vg, tmp);
         print_mem(pid);
         startTime();
         cout << "dirty data" << G.accessAllEdges() << endl;
@@ -754,10 +894,125 @@ int parallel_main(int argc, char* argv[]) {
         Compute(G,P);
         nextTime("Running time");
       }
-      G.del();
     }
+    G.del();
   } else { // code for hybrid vertex
-    
+    cout << "vertex type : hybrid " << endl;
+    startTime();
+    graph<HVertex> G = readHGraphFromFile(iFile);
+    // print_mem(pid);
+    nextTime("load graph ");
+    // cout << G.m << " " << G.n << endl;
+    // cout << "dirty data" << G.accessAllEdges() << endl;
+    // nextTime("access all edge ");
+    // cout << endl;
+
+    if (!version_graph) {
+      bigDelta<HVertex> bdelta;
+      for(auto i=0; i<delta_num; i++) {
+        cout << "delta : " << i << "-" << i+1 << endl;
+        // cout << dlg.deltaLog.size() << endl;
+        string filename = basedir + to_string(i) + '-' + to_string(i+1);
+
+        delta_log<HVertex> dlg = load_deltalog_from_file<HVertex>(G, filename.c_str());
+        
+        delta<HVertex> dlt = delta<HVertex>(dlg, G);
+
+        bdelta.append(dlt);
+        
+        forward(G, bdelta);
+
+        print_mem(pid);
+        // cout << "edgenum " << G.get_edge_number() << endl;
+        startTime();
+        cout << "dirty data" << G.accessAllEdges() << endl;
+        nextTime("access all edge ");
+      }
+
+      for(int r = 0; r < delta_num; r++) {
+        if (r%5) {
+          continue;
+        }
+        jump(G, bdelta, delta_num);
+        // cout << r << endl;
+        startTime();
+        jump(G, bdelta, r);
+        nextTime("switch ");
+
+        Compute(G, P);
+
+        startTime();
+        Compute(G, P);
+        nextTime("Running time")
+      }
+
+      // Compute(G,P);
+      // startTime();
+      // random switch with skew in version
+      for(int r=0;r<rounds;r++) {
+        int randi = expdist.getRand(delta_num);
+        cout << "jump to version " << randi << endl;
+        startTime();
+        jump(G, bdelta, randi);
+        nextTime("addtime");
+        // cout << "graph origin size " << G.get_edge_number() << endl;
+        Compute(G,P);
+        startTime();
+        Compute(G,P);
+        nextTime("Running time");
+      }
+    } else {
+      versionGraph<HVertex> vg;
+
+      for (auto i=0; i<delta_num; i++) {
+        cout << "version graph delta : " << i << "-" << i+1 << endl;
+        string filename = basedir + to_string(i) + '-' + to_string(i+1);
+        // vg.print_edges();
+        delta_log<HVertex> dlg = load_deltalog_from_file<HVertex>(G, filename.c_str());
+        delta<HVertex> *dlt = new delta<HVertex>(dlg, G);
+        
+        uintT tmp = dlt->ve;
+        vg.append(G, dlt);
+
+        jump(G, vg, tmp);
+
+        print_mem(pid);
+        startTime();
+        cout << "dirty data" << G.accessAllEdges() << endl;
+        nextTime("access all edge ");
+      }
+
+      for(int r = 0; r < delta_num; r++) {
+        if (r%5) {
+          continue;
+        }
+        jump(G, vg, delta_num);
+        cout << r << " : " << endl;
+        startTime();
+        jump(G, vg, r);
+        nextTime("switch ");
+
+        Compute(G, P);
+
+        startTime();
+        Compute(G, P);
+        nextTime("Running time")
+      }
+      // random switch with skew in version
+      for(int r=0;r<rounds;r++) {
+        int randi = expdist.getRand(delta_num);
+        cout << "jump to version " << randi << endl;
+        startTime();
+        jump(G, vg, randi);
+        nextTime("addtime");
+        // cout << "graph origin size " << G.get_edge_number() << endl;
+        Compute(G,P);
+        startTime();
+        Compute(G,P);
+        nextTime("Running time");
+      }
+    }
+    G.del();
   }
   return 0;
 }

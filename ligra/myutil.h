@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <ctime>
+#include <random>
 
 #define DEBUG 1
 
@@ -44,5 +45,22 @@ private:
   using milli_ = std::chrono::milliseconds;
   std::chrono::time_point<clock_> beg_;
 };
+
+uintT get_new_from(uintT current_max, uintT bound = 5) {
+  if (bound == 0) {
+    return current_max;
+  }
+  uintT current_min;
+  if (current_max >= bound) {
+    current_min = current_max - bound;
+  } else {
+    current_min = 0;
+  }
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<> dis(current_min, current_max);
+
+  return dis(gen);
+}
 
 #endif

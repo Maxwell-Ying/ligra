@@ -3,10 +3,12 @@
 #include <iostream>
 #include <fstream>
 #include <stdlib.h>
+#include <unordered_map>
 #include "vertex.h"
 #include "compressedVertex.h"
 #include "parallel.h"
 #include "myVector.h"
+#include "get_mem.h"
 
 using namespace std;
 
@@ -67,8 +69,11 @@ public:
 
 template <class vertex>
 struct graph {
+private:
+  int max_version;
   myVector<vertex> V;
   int version;//version id
+public:
   long n;
   long m;
   bool transposed;
@@ -82,7 +87,7 @@ struct graph {
     }
   }
 
-  graph(myVector<vertex> _V, long _n, long _m, Deletable* _D) : V(_V), n(_n), m(_m),
+  graph(myVector<vertex>& _V, long _n, long _m, Deletable* _D) : V(_V), n(_n), m(_m),
   D(_D), flags(NULL), transposed(0), version(0) {}
 
   graph(vertex* _V, long _n, long _m, Deletable* _D, uintE* _flags, int _version) : V(_V),
@@ -107,16 +112,24 @@ struct graph {
 	  return V.data();
   }
 
-  vertex * getvertex(uintT j) {
+  inline vertex * getvertex(uintT j) {
+    if (j >= n) {
+      resize(j+1);
+    }
     return &V[j];
   }
 
+  void resize(uintT new_size) {
+    cout << "vertex expand from " << n << " to " << new_size << endl;
+    V.resize(new_size);
+    for (auto i=n; i<V.size(); i++) {
+        V[i].prepare();
+      }
+    n = V.size();
+  }
+
   int get_edge_number() {
-    int count = 0;
-    for (auto v : V) {
-      count += v.outNeighbors.size();
-    }
-    return count;
+    return m;
   }
 
   int get_edge_capicity() {
@@ -131,100 +144,75 @@ struct graph {
     return version;
   }
 
+  int get_max_version() {
+    return max_version;
+  }
+
   void update_m(void) {
     int ret = 0;
     for (auto v : V) {
-      ret += v.outNeighbors.size();
+      ret += v.getInDegree();
     }
     m = ret;
   }
 
+  void add_m(int a) {
+    if (m+a < 0) {
+      update_m();
+    }
+    m += a;
+  }
+
   void set_version(int vers) {
     version = vers;
+    if (version > max_version) {
+      max_version = version;
+    }
   }
 
   uintE accessAllEdges() {
     uintE ret = 0;
-    // int count = 0;
-    // auto start = std::chrono::high_resolution_clock::now();
+    int count = 0;
+    int length = 0;
     for (auto i = 0; i < n; i++) {
-      for (auto j = 0; j < V[i].getInDegree(); j++) {
-        ret ^= V[i].getInNeighbor(j);
+      length = V[i].getInDegree();
+      vertex & tmp = V[i];
+      for (auto j = 0; j < length; j++) {
+        ret ^= tmp.getInNeighbor(j);
+        // auto k = tmp.getInNeighbor(j);
+        // tmp.empty_step();
       }
-      // count += V[i].getInDegree();
-      // if (!(i % 1000000) && i) {
-        // auto finish = std::chrono::high_resolution_clock::now();
-        // std::cout << std::chrono::duration_cast<std::chrono::nanoseconds>(finish-start).count() << "ns\n";
-        // cout << "count : " << count << endl;
-      // }
+      count += length;
     }
-    // abort();
+    cout << "count " << count << " edges " << endl;
     return ret;
+  }
+
+  uintE access_vertex(uintE vtx) {
+    uintT ret = 0;
+    for (auto i=0; i<V[vtx].getInDegree(); i++) {
+      ret ^= V[vtx].getInNeighbor(i);
+    }
+    return ret;
+  }
+
+  myVector<uintE> get_ldvertex(uintT ver) {
+    myVector<uintE> ret;
+    for (auto i=0; i<n; i++) {
+      if (V[i].is_ld_to(ver)) {
+        ret.push_back(i);
+      }
+    }
+    return ret;
+  }
+
+  bool is_hybrid() {
+    return sizeof(vertex) == sizeof(HVertex);
+  }
+
+  bool is_high_degree_vertex(uintT index) {
+    return V[index].is_high_degree_vertex();
   }
 };
 
-template <>
-struct graph<hybridVertex> {
-  myVector<hybridVertex*> V;
-  int version;
-  long m;
-  long n;
-  bool transposed;
-  uintE * flags;
-  Deletable * D;
-
-  graph(myVector<hybridVertex *> _V, long _n, long _m, Deletable* _D) : V(_V), n(_n), m(_m),
-  D(_D), flags(NULL), transposed(0), version(0) {}
-
-  void del() {
-    if (flags != NULL) free(flags);
-    D->del();
-    free(D);
-    if (V.size() > 0) {
-      for (auto i = 0; i < V.size(); i++) {
-        if (i) {
-          delete V[i];
-          V[i] = NULL;
-        }
-      }
-    }
-  }
-
-  hybridVertex * getvertex() {
-    return V[0];
-  }
-
-  hybridVertex * getvertex(uintT j) {
-    if (j >= n) {
-      cout << "wrong vertex index" << endl;
-      abort();
-    }
-    return V[j];
-  }
-
-  int get_edge_number() {
-    int ret = 0;
-    for (auto i : V) {
-      ret += i->getInDegree();
-    }
-    return ret;
-  }
-  
-  int get_version() {
-    return version;
-  }
-
-  void set_version(int vers) {
-    version = vers;
-  }
-  uintE accessAllEdges() {
-    uintE ret = 0;
-    for (auto i: V) {
-      for (auto j=0; j<i->getInDegree(); j++) {
-        ret &= i->getInNeighbor(j);
-      }
-    }
-    return ret;
-  }
-};
 #endif
